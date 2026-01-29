@@ -1,10 +1,11 @@
 from typing import Iterable, List, Tuple
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from server.app.models.asset_entity import AssetEntity
+from server.app.schemas.asset_entity import AssetType
 
 
 def bulk_import_assets(
@@ -29,6 +30,14 @@ def bulk_import_assets(
         index_elements=["project_id", "asset_type", "value"]
     )
     result = db.execute(stmt)
+    pairs = {(asset["asset_type"], asset["value"]) for asset in asset_list}
+    if pairs:
+        db.execute(
+            update(AssetEntity)
+            .where(AssetEntity.project_id == project_id)
+            .where(tuple_(AssetEntity.asset_type, AssetEntity.value).in_(pairs))
+            .values(last_seen=func.now())
+        )
     db.commit()
     inserted = result.rowcount or 0
     total = len(asset_list)
@@ -37,11 +46,14 @@ def bulk_import_assets(
 
 
 def list_assets(
-    db: Session, project_id, asset_type: str | None, offset: int, limit: int
+    db: Session, project_id, asset_type: AssetType | None, offset: int, limit: int
 ) -> Tuple[int, List[AssetEntity]]:
     query = select(AssetEntity).where(AssetEntity.project_id == project_id)
     if asset_type:
         query = query.where(AssetEntity.asset_type == asset_type)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
-    items = db.scalars(query.order_by(AssetEntity.first_seen.desc()).offset(offset).limit(limit)).all()
+    items = (
+        db.scalars(query.order_by(AssetEntity.first_seen.desc()).offset(offset).limit(limit))
+        .all()
+    )
     return total, items

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -21,7 +21,9 @@ def create_project_endpoint(payload: ProjectCreate, db: Session = Depends(get_db
 
 @router.get("", response_model=Page[ProjectOut])
 def list_projects_endpoint(
-    offset: int = 0, limit: int = 20, db: Session = Depends(get_db)
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=200),
+    db: Session = Depends(get_db),
 ) -> Page[ProjectOut]:
     total, items = list_projects(db, offset=offset, limit=limit)
     return Page(total=total, items=items)

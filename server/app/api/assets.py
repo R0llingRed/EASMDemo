@@ -1,10 +1,15 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from server.app.api.deps import get_project_dep
 from server.app.crud.asset_entity import bulk_import_assets, list_assets
 from server.app.db.session import get_db
-from server.app.schemas.asset_entity import AssetEntityOut, AssetImportRequest, AssetImportResult
+from server.app.schemas.asset_entity import (
+    AssetEntityOut,
+    AssetImportRequest,
+    AssetImportResult,
+    AssetType,
+)
 from server.app.schemas.common import Page
 
 router = APIRouter(prefix="/projects/{project_id}/assets", tags=["assets"])
@@ -26,9 +31,9 @@ def import_assets(
 
 @router.get("", response_model=Page[AssetEntityOut])
 def list_assets_endpoint(
-    asset_type: str | None = None,
-    offset: int = 0,
-    limit: int = 20,
+    asset_type: AssetType | None = None,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=200),
     project=Depends(get_project_dep),
     db: Session = Depends(get_db),
 ) -> Page[AssetEntityOut]:

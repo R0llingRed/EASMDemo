@@ -22,7 +22,11 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+        ),
     )
     op.create_index("ix_project_name", "project", ["name"], unique=True)
 
@@ -39,7 +43,11 @@ def upgrade() -> None:
         sa.Column("value", sa.String(length=2048), nullable=False),
         sa.Column("source", sa.String(length=128), nullable=True),
         sa.Column("first_seen", sa.DateTime(timezone=True), server_default=sa.text("now()")),
-        sa.Column("last_seen", sa.DateTime(timezone=True), server_default=sa.text("now()")),
+        sa.Column(
+            "last_seen",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+        ),
         sa.UniqueConstraint("project_id", "asset_type", "value", name="uq_asset_entity_key"),
     )
     op.create_index("ix_asset_entity_project_id", "asset_entity", ["project_id"])

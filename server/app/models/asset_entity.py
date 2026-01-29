@@ -19,4 +19,9 @@ class AssetEntity(Base):
     value = Column(String(2048), nullable=False)
     source = Column(String(128))
     first_seen = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    last_seen = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    last_seen = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
