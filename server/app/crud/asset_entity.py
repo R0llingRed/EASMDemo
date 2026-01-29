@@ -15,6 +15,27 @@ def bulk_import_assets(
     if not asset_list:
         return 0, 0, 0
 
+    deduped = {}
+    for asset in asset_list:
+        key = (asset["asset_type"], asset["value"])
+        if key not in deduped:
+            deduped[key] = asset
+
+    pairs = list(deduped.keys())
+    total = len(asset_list)
+    if not pairs:
+        return 0, total, total
+
+    existing = (
+        db.scalar(
+            select(func.count())
+            .select_from(AssetEntity)
+            .where(AssetEntity.project_id == project_id)
+            .where(tuple_(AssetEntity.asset_type, AssetEntity.value).in_(pairs))
+        )
+        or 0
+    )
+
     stmt = insert(AssetEntity).values(
         [
             {
@@ -23,24 +44,22 @@ def bulk_import_assets(
                 "value": asset["value"],
                 "source": asset.get("source"),
             }
-            for asset in asset_list
+            for asset in deduped.values()
         ]
     )
     stmt = stmt.on_conflict_do_nothing(
         index_elements=["project_id", "asset_type", "value"]
     )
-    result = db.execute(stmt)
-    pairs = {(asset["asset_type"], asset["value"]) for asset in asset_list}
-    if pairs:
-        db.execute(
-            update(AssetEntity)
-            .where(AssetEntity.project_id == project_id)
-            .where(tuple_(AssetEntity.asset_type, AssetEntity.value).in_(pairs))
-            .values(last_seen=func.now())
-        )
+    db.execute(stmt)
+    db.execute(
+        update(AssetEntity)
+        .where(AssetEntity.project_id == project_id)
+        .where(tuple_(AssetEntity.asset_type, AssetEntity.value).in_(pairs))
+        .values(last_seen=func.now())
+    )
     db.commit()
-    inserted = result.rowcount or 0
-    total = len(asset_list)
+
+    inserted = max(len(pairs) - existing, 0)
     skipped = total - inserted
     return inserted, skipped, total
 
