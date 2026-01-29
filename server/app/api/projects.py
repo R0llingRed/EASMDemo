@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from server.app.crud.project import create_project, list_projects
@@ -17,6 +17,12 @@ def create_project_endpoint(payload: ProjectCreate, db: Session = Depends(get_db
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=409, detail="project already exists") from exc
+    except ProgrammingError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="database not initialized, run: alembic -c server/alembic.ini upgrade head",
+        ) from exc
 
 
 @router.get("", response_model=Page[ProjectOut])

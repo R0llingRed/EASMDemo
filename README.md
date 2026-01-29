@@ -14,7 +14,13 @@ cp .env.example .env
 docker compose up --build
 ```
 
-3. Health check
+3. Run migrations (Docker)
+
+```bash
+docker compose exec api python -m alembic -c server/alembic.ini upgrade head
+```
+
+4. Health check
 
 ```bash
 curl http://localhost:8000/health
@@ -35,8 +41,9 @@ uvicorn server.app.main:app --host 0.0.0.0 --port 8000
 # run worker locally
 celery -A worker.app.celery_app:celery_app worker -Q default -l info
 
-# run alembic migrations
-alembic -c server/alembic.ini upgrade head
+# run alembic migrations (local venv)
+EASM_DATABASE_URL=postgresql+psycopg://easm:easm@localhost:5432/easm \
+  alembic -c server/alembic.ini upgrade head
 
 # db connectivity check
 python server/app/scripts/db_check.py
