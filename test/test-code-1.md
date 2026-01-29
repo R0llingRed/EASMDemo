@@ -112,7 +112,7 @@ curl -s -X POST http://localhost:8000/projects/$PROJECT_ID/assets/import \
   }'
 ```
 
-期望：`422`。
+期望：`422`，`detail` 中包含 `enum` 校验错误。
 
 ## 9. 分页参数越界
 
@@ -120,4 +120,4 @@ curl -s -X POST http://localhost:8000/projects/$PROJECT_ID/assets/import \
 curl -s "http://localhost:8000/projects/$PROJECT_ID/assets?offset=-1&limit=500"
 ```
 
-期望：`422`。
+期望：`422`，`detail` 中包含 `ge/le` 校验错误。
