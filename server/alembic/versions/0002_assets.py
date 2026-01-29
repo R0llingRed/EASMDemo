@@ -5,8 +5,8 @@ Revises: 0001_init
 Create Date: 2026-01-29
 """
 
-import sqlalchemy as sa
 from alembic import op
+import sqlalchemy as sa
 
 
 revision = "0002_assets"
