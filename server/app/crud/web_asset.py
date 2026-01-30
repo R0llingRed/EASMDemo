@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from server.app.models.web_asset import WebAsset
+from server.app.utils.fingerprint import compute_url_fingerprint
 
 
 def upsert_web_asset(
@@ -14,9 +15,11 @@ def upsert_web_asset(
     url: str,
     **kwargs,
 ) -> WebAsset:
+    fingerprint = compute_url_fingerprint(str(project_id), url)
     stmt = insert(WebAsset).values(
         project_id=project_id,
         url=url,
+        fingerprint_hash=fingerprint,
         **kwargs,
     )
     stmt = stmt.on_conflict_do_update(

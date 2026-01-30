@@ -20,5 +20,6 @@ class Subdomain(Base):
     is_cdn = Column(Boolean, default=False)
     cdn_provider = Column(String(128))
     status = Column(String(32), default="active")
+    fingerprint_hash = Column(String(32), index=True)
     first_seen = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_seen = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

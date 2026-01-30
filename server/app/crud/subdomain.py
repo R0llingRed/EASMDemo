@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from server.app.models.subdomain import Subdomain
+from server.app.utils.fingerprint import compute_subdomain_fingerprint
 
 
 def upsert_subdomain(
@@ -17,6 +18,7 @@ def upsert_subdomain(
     ip_addresses: Optional[List[str]] = None,
     cname: Optional[str] = None,
 ) -> Subdomain:
+    fingerprint = compute_subdomain_fingerprint(str(project_id), subdomain)
     stmt = insert(Subdomain).values(
         project_id=project_id,
         root_domain=root_domain,
@@ -24,6 +26,7 @@ def upsert_subdomain(
         source=source,
         ip_addresses=ip_addresses or [],
         cname=cname,
+        fingerprint_hash=fingerprint,
     )
     stmt = stmt.on_conflict_do_update(
         index_elements=["project_id", "subdomain"],
@@ -61,6 +64,7 @@ def bulk_upsert_subdomains(
             "subdomain": sub,
             "source": source,
             "ip_addresses": [],
+            "fingerprint_hash": compute_subdomain_fingerprint(str(project_id), sub),
         }
         for sub in subdomains
     ]

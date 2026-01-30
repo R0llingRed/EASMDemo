@@ -27,5 +27,6 @@ class WebAsset(Base):
     screenshot_path = Column(String(512))
     response_hash = Column(String(64))
     is_alive = Column(Boolean, default=True)
+    fingerprint_hash = Column(String(32), index=True)
     first_seen = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_seen = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

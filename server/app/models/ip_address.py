@@ -20,5 +20,6 @@ class IPAddress(Base):
     region = Column(String(128))
     city = Column(String(128))
     is_cdn = Column(Boolean, default=False)
+    fingerprint_hash = Column(String(32), index=True)
     first_seen = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_seen = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
