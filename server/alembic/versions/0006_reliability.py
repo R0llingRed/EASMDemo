@@ -70,8 +70,17 @@ def upgrade() -> None:
         unique=False,
     )
 
+    # Add priority to scan_task
+    op.add_column(
+        "scan_task",
+        sa.Column("priority", sa.Integer, nullable=True, server_default="5"),
+    )
+    op.create_index("ix_scan_task_priority", "scan_task", ["priority"])
+
 
 def downgrade() -> None:
+    op.drop_index("ix_scan_task_priority", table_name="scan_task")
+    op.drop_column("scan_task", "priority")
     op.drop_index("ix_web_asset_fingerprint_hash", table_name="web_asset")
     op.drop_index("ix_ip_address_fingerprint_hash", table_name="ip_address")
     op.drop_index("ix_subdomain_fingerprint_hash", table_name="subdomain")

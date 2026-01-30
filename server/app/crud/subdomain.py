@@ -102,3 +102,46 @@ def count_subdomains(
     if root_domain:
         stmt = stmt.where(Subdomain.root_domain == root_domain)
     return db.scalar(stmt) or 0
+
+
+def find_duplicates(db: Session, project_id: UUID) -> List[tuple]:
+    """Find duplicate subdomains by fingerprint hash."""
+    stmt = (
+        select(Subdomain.fingerprint_hash, func.count(Subdomain.id))
+        .where(Subdomain.project_id == project_id)
+        .where(Subdomain.fingerprint_hash.isnot(None))
+        .group_by(Subdomain.fingerprint_hash)
+        .having(func.count(Subdomain.id) > 1)
+    )
+    return list(db.execute(stmt).all())
+
+
+def merge_duplicates(db: Session, project_id: UUID) -> int:
+    """Merge duplicate subdomains, keeping the most recent."""
+    duplicates = find_duplicates(db, project_id)
+    merged_count = 0
+
+    for fingerprint, count in duplicates:
+        # Get all records with this fingerprint
+        records = db.scalars(
+            select(Subdomain)
+            .where(Subdomain.project_id == project_id)
+            .where(Subdomain.fingerprint_hash == fingerprint)
+            .order_by(Subdomain.last_seen.desc())
+        ).all()
+
+        if len(records) <= 1:
+            continue
+
+        # Keep the first (most recent), delete others
+        keeper = records[0]
+        for dup in records[1:]:
+            # Merge IP addresses
+            if dup.ip_addresses:
+                merged_ips = list(set(keeper.ip_addresses or []) | set(dup.ip_addresses))
+                keeper.ip_addresses = merged_ips
+            db.delete(dup)
+            merged_count += 1
+
+    db.commit()
+    return merged_count

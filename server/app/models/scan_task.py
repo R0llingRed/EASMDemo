@@ -14,6 +14,7 @@ class ScanTask(Base):
     project_id = Column(UUID(as_uuid=True), ForeignKey("project.id"), nullable=False, index=True)
     task_type = Column(String(64), nullable=False, index=True)
     status = Column(String(32), nullable=False, default="pending", index=True)
+    priority = Column(Integer, default=5, index=True)  # 1-10, higher = more urgent
     progress = Column(Integer, default=0)
     total_targets = Column(Integer, default=0)
     completed_targets = Column(Integer, default=0)
