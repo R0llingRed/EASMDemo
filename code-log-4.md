@@ -9,6 +9,7 @@
 ## 1. 本轮范围
 
 - Nuclei 漏洞扫描任务
+- Xray Web 漏洞扫描任务
 - 漏洞数据模型与存储
 - 漏洞结果解析
 - 严重度映射
@@ -32,6 +33,7 @@
 ### 2.3 Celery 任务
 
 - [x] Nuclei 扫描任务
+- [x] Xray 扫描任务
 - [x] 结果解析与入库
 
 ### 2.4 其他
@@ -53,16 +55,17 @@
 | `server/app/api/vulnerabilities.py` | 漏洞 API 路由 |
 | `server/alembic/versions/0005_vulnerabilities.py` | 数据库迁移脚本 |
 | `worker/app/tasks/nuclei_scan.py` | Nuclei 扫描 Celery 任务 |
+| `worker/app/tasks/xray_scan.py` | Xray 扫描 Celery 任务 |
 | `test/test_vulnerability.py` | 漏洞严重度映射测试 |
 
 ### 3.2 修改文件
 
 | 文件路径 | 修改内容 |
 |---------|---------|
-| `server/app/schemas/scan_task.py` | 新增 TaskType: nuclei_scan |
+| `server/app/schemas/scan_task.py` | 新增 TaskType: nuclei_scan, xray_scan |
 | `server/app/api/router.py` | 注册 vulnerabilities 路由 |
 | `server/app/api/scans.py` | 更新任务分发逻辑 |
-| `worker/app/celery_app.py` | 注册 nuclei_scan 任务模块 |
+| `worker/app/celery_app.py` | 注册 nuclei_scan, xray_scan 任务模块 |
 
 ---
 
@@ -90,7 +93,15 @@
 - JSON 输出解析
 - 结果自动入库（upsert）
 
-### 5.3 严重度映射
+### 5.3 Xray 扫描
+
+- 使用 xray CLI 工具执行扫描
+- 支持配置：plugins, batch_size, use_crawler
+- 插件白名单验证（xss, sqldet, cmd-injection 等）
+- JSON 输出解析（数组/换行分隔格式）
+- template_id 格式：`xray-{plugin}`
+
+### 5.4 严重度映射
 
 | Nuclei | 系统 |
 |--------|------|
@@ -120,3 +131,4 @@ Total: 8 passed
 | 2026-01-30 | 完成 Nuclei 扫描 Celery 任务 |
 | 2026-01-30 | 完成数据库迁移 0005_vulnerabilities |
 | 2026-01-30 | 完成单元测试（8 个测试用例） |
+| 2026-01-30 | 集成 Xray Web 漏洞扫描任务 |
