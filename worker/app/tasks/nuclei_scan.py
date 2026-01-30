@@ -2,14 +2,21 @@
 import json
 import logging
 import os
+import re
 from typing import Any, Dict, List
 from uuid import UUID
+
+from sqlalchemy.orm import Session
 
 from worker.app.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
-NUCLEI_TEMPLATES_DIR = os.environ.get("EASM_NUCLEI_TEMPLATES", "/app/data/nuclei-templates")
+# Valid severity levels for nuclei
+VALID_SEVERITIES = {"info", "low", "medium", "high", "critical"}
+
+# Template path validation pattern (alphanumeric, dash, underscore, slash, dot)
+TEMPLATE_PATTERN = re.compile(r"^[\w\-./]+$")
 
 
 @celery_app.task(bind=True, name="worker.app.tasks.nuclei_scan.run_nuclei_scan")
@@ -39,7 +46,7 @@ def run_nuclei_scan(self, task_id: str):
         db.close()
 
 
-def _run_nuclei_scan(db, task) -> Dict[str, Any]:
+def _run_nuclei_scan(db: Session, task) -> Dict[str, Any]:
     """Execute Nuclei scan on web assets."""
     from server.app.crud.web_asset import list_web_assets
 
@@ -47,6 +54,11 @@ def _run_nuclei_scan(db, task) -> Dict[str, Any]:
     batch_size = config.get("batch_size", 100)
     severity = config.get("severity", "medium,high,critical")
     templates = config.get("templates", [])
+
+    # Validate severity input
+    severity = _validate_severity(severity)
+    # Validate templates input
+    templates = _validate_templates(templates)
 
     assets = list_web_assets(db, task.project_id, is_alive=True, limit=batch_size)
     urls = [a.url for a in assets]
@@ -64,6 +76,24 @@ def _run_nuclei_scan(db, task) -> Dict[str, Any]:
     return {"urls_scanned": len(urls), "vulnerabilities_found": vuln_count}
 
 
+def _validate_severity(severity: str) -> str:
+    """Validate and sanitize severity input."""
+    parts = [s.strip().lower() for s in severity.split(",")]
+    valid_parts = [p for p in parts if p in VALID_SEVERITIES]
+    if not valid_parts:
+        return "medium,high,critical"
+    return ",".join(valid_parts)
+
+
+def _validate_templates(templates: List[str]) -> List[str]:
+    """Validate and sanitize template paths."""
+    valid_templates = []
+    for t in templates:
+        if TEMPLATE_PATTERN.match(t) and ".." not in t:
+            valid_templates.append(t)
+    return valid_templates
+
+
 def _execute_nuclei(
     urls: List[str], severity: str, templates: List[str]
 ) -> List[Dict[str, Any]]:
@@ -77,12 +107,13 @@ def _execute_nuclei(
         return []
 
     results = []
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
-        f.write("\n".join(urls))
-        targets_file = f.name
+    targets_file = None
 
     try:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("\n".join(urls))
+            targets_file = f.name
+
         cmd = [
             "nuclei",
             "-l", targets_file,
@@ -113,7 +144,8 @@ def _execute_nuclei(
     except Exception as e:
         logger.error(f"nuclei execution failed: {e}")
     finally:
-        os.unlink(targets_file)
+        if targets_file and os.path.exists(targets_file):
+            os.unlink(targets_file)
 
     return results
 

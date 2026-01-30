@@ -1,11 +1,14 @@
 """Fingerprint identification tasks."""
 import hashlib
 import logging
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID
 
 from worker.app.celery_app import celery_app
 from worker.app.fingerprint import FingerprintEngine, load_fingerprints
+
+if TYPE_CHECKING:
+    from server.app.models.web_asset import WebAsset
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +80,7 @@ def _run_fingerprint(db, task) -> Dict[str, Any]:
 
 
 def _identify_fingerprints_for_asset(
-    asset, engine: Optional[FingerprintEngine]
+    asset: "WebAsset", engine: Optional[FingerprintEngine]
 ) -> List[str]:
     """Identify fingerprints for a single asset."""
     fingerprints = []
