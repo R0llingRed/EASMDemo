@@ -14,6 +14,7 @@ class TaskType(str, Enum):
     fingerprint = "fingerprint"
     screenshot = "screenshot"
     nuclei_scan = "nuclei_scan"
+    xray_scan = "xray_scan"
 
 
 class TaskStatus(str, Enum):
