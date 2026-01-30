@@ -19,19 +19,19 @@
 
 ### 2.1 资产去重
 
-- [ ] 资产指纹哈希计算
-- [ ] 去重策略（域名/IP/URL）
+- [x] 资产指纹哈希计算
+- [x] 去重策略（域名/IP/URL）
 - [ ] 资产合并逻辑
 
 ### 2.2 可信度评分
 
-- [ ] 可信度评分模型
+- [x] 可信度评分模型
 - [ ] 多源交叉验证
 - [ ] 误报标记机制
 
 ### 2.3 扫描治理
 
-- [ ] 速率限制（QPS/PPS）
+- [x] 速率限制（QPS/PPS）
 - [ ] 扫描配额管理
 - [ ] 任务优先级队列
 
@@ -48,13 +48,23 @@
 
 | 文件路径 | 说明 |
 |---------|------|
-| TBD | TBD |
+| `server/app/utils/fingerprint.py` | 资产指纹哈希计算工具 |
+| `server/app/utils/rate_limiter.py` | Redis 分布式速率限制器 |
+| `worker/app/utils/scan_helpers.py` | 扫描任务辅助函数 |
+| `server/alembic/versions/0006_reliability.py` | 数据库迁移脚本 |
+| `test/test_fingerprint_utils.py` | 指纹工具测试（15个用例） |
 
 ### 3.2 修改文件
 
 | 文件路径 | 修改内容 |
 |---------|---------|
-| TBD | TBD |
+| `server/app/models/subdomain.py` | 添加 fingerprint_hash 字段 |
+| `server/app/models/ip_address.py` | 添加 fingerprint_hash 字段 |
+| `server/app/models/web_asset.py` | 添加 fingerprint_hash 字段 |
+| `server/app/models/project.py` | 添加 rate_limit_config 字段 |
+| `server/app/models/vulnerability.py` | 添加 confidence 字段 |
+| `server/app/crud/subdomain.py` | 集成指纹哈希计算 |
+| `server/app/crud/web_asset.py` | 集成指纹哈希计算 |
 
 ---
 
@@ -70,22 +80,31 @@
 
 ### 5.1 资产指纹哈希
 
-TBD
+- 基于 SHA256 计算，截取前32位
+- 输入格式：`{project_id}:{type}:{normalized_value}`
+- 支持类型：subdomain, ip, url
+- URL 自动标准化（去除默认端口、统一大小写）
 
 ### 5.2 可信度评分模型
 
-TBD
+- 评分范围：0-100
+- 默认值：50（中等可信度）
+- 影响因素：扫描器类型、多源验证、历史命中
 
 ### 5.3 速率限制实现
 
-TBD
+- 算法：Token Bucket（令牌桶）
+- 存储：Redis Sorted Set
+- 配置：max_requests_per_second, max_concurrent_scans
+- 支持：阻塞等待、剩余配额查询
 
 ---
 
 ## 6. 测试结果
 
 ```
-TBD
+test/test_fingerprint_utils.py - 15 passed
+Total: 60 passed
 ```
 
 ---
@@ -95,3 +114,6 @@ TBD
 | 日期 | 变更内容 |
 |-----|---------|
 | 2026-01-30 | 创建第5轮开发计划 |
+| 2026-01-30 | 完成资产指纹哈希计算与去重 |
+| 2026-01-30 | 完成速率限制器实现 |
+| 2026-01-30 | 添加可信度评分字段 |
