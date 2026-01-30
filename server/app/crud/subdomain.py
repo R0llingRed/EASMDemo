@@ -118,11 +118,12 @@ def find_duplicates(db: Session, project_id: UUID) -> List[tuple]:
 
 def merge_duplicates(db: Session, project_id: UUID) -> int:
     """Merge duplicate subdomains, keeping the most recent."""
+    from sqlalchemy import delete
+
     duplicates = find_duplicates(db, project_id)
     merged_count = 0
 
     for fingerprint, count in duplicates:
-        # Get all records with this fingerprint
         records = db.scalars(
             select(Subdomain)
             .where(Subdomain.project_id == project_id)
@@ -133,15 +134,21 @@ def merge_duplicates(db: Session, project_id: UUID) -> int:
         if len(records) <= 1:
             continue
 
-        # Keep the first (most recent), delete others
         keeper = records[0]
+        ids_to_delete = []
+
         for dup in records[1:]:
-            # Merge IP addresses
             if dup.ip_addresses:
                 merged_ips = list(set(keeper.ip_addresses or []) | set(dup.ip_addresses))
                 keeper.ip_addresses = merged_ips
-            db.delete(dup)
-            merged_count += 1
+            ids_to_delete.append(dup.id)
+
+        # Batch delete
+        if ids_to_delete:
+            db.execute(
+                delete(Subdomain).where(Subdomain.id.in_(ids_to_delete))
+            )
+            merged_count += len(ids_to_delete)
 
     db.commit()
     return merged_count

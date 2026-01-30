@@ -1,10 +1,13 @@
 """Rate limiter for scan tasks using Redis."""
+import logging
 import time
 from typing import Optional
 
 import redis
 
 from shared.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class RateLimiter:
@@ -28,23 +31,27 @@ class RateLimiter:
         window_seconds: int,
     ) -> bool:
         """Check if request is allowed under rate limit."""
-        key = self._get_key(identifier)
-        current_time = int(time.time())
-        window_start = current_time - window_seconds
+        try:
+            key = self._get_key(identifier)
+            current_time = int(time.time())
+            window_start = current_time - window_seconds
 
-        pipe = self.redis.pipeline()
-        # Remove old entries
-        pipe.zremrangebyscore(key, 0, window_start)
-        # Count current entries
-        pipe.zcard(key)
-        # Add new entry
-        pipe.zadd(key, {str(current_time): current_time})
-        # Set expiry
-        pipe.expire(key, window_seconds + 1)
-        results = pipe.execute()
+            pipe = self.redis.pipeline()
+            pipe.zremrangebyscore(key, 0, window_start)
+            pipe.zcard(key)
+            results = pipe.execute()
 
-        current_count = results[1]
-        return current_count < max_requests
+            current_count = results[1]
+            if current_count >= max_requests:
+                return False
+
+            # Only add entry if allowed
+            self.redis.zadd(key, {str(current_time): current_time})
+            self.redis.expire(key, window_seconds + 1)
+            return True
+        except redis.RedisError as e:
+            logger.warning(f"Rate limiter error: {e}, allowing request")
+            return True
 
     def wait_if_needed(
         self,
@@ -68,13 +75,17 @@ class RateLimiter:
         window_seconds: int,
     ) -> int:
         """Get remaining requests in current window."""
-        key = self._get_key(identifier)
-        current_time = int(time.time())
-        window_start = current_time - window_seconds
+        try:
+            key = self._get_key(identifier)
+            current_time = int(time.time())
+            window_start = current_time - window_seconds
 
-        self.redis.zremrangebyscore(key, 0, window_start)
-        current_count = self.redis.zcard(key)
-        return max(0, max_requests - current_count)
+            self.redis.zremrangebyscore(key, 0, window_start)
+            current_count = self.redis.zcard(key)
+            return max(0, max_requests - current_count)
+        except redis.RedisError as e:
+            logger.warning(f"Rate limiter error: {e}")
+            return max_requests
 
 
 # Global rate limiter instance
