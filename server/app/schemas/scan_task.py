@@ -13,6 +13,7 @@ class TaskType(str, Enum):
     http_probe = "http_probe"
     fingerprint = "fingerprint"
     screenshot = "screenshot"
+    nuclei_scan = "nuclei_scan"
 
 
 class TaskStatus(str, Enum):

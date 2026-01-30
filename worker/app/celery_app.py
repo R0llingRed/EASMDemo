@@ -12,6 +12,7 @@ celery_app = Celery(
         "worker.app.tasks.http_probe",
         "worker.app.tasks.fingerprint",
         "worker.app.tasks.screenshot",
+        "worker.app.tasks.nuclei_scan",
     ],
 )
 
@@ -22,5 +23,6 @@ celery_app.conf.update(
         "worker.app.tasks.http_probe.run_http_probe": {"queue": "scan"},
         "worker.app.tasks.fingerprint.run_fingerprint": {"queue": "scan"},
         "worker.app.tasks.screenshot.run_screenshot": {"queue": "scan"},
+        "worker.app.tasks.nuclei_scan.run_nuclei_scan": {"queue": "scan"},
     },
 )

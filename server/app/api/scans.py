@@ -14,6 +14,7 @@ from worker.app.tasks import fingerprint as fingerprint_tasks
 from worker.app.tasks import http_probe as http_probe_tasks
 from worker.app.tasks import scan as scan_tasks
 from worker.app.tasks import screenshot as screenshot_tasks
+from worker.app.tasks import nuclei_scan as nuclei_tasks
 
 router = APIRouter(prefix="/projects/{project_id}/scans", tags=["scans"])
 
@@ -97,6 +98,8 @@ def start_scan(
         fingerprint_tasks.run_fingerprint.delay(str(task.id))
     elif task_type == "screenshot":
         screenshot_tasks.run_screenshot.delay(str(task.id))
+    elif task_type == "nuclei_scan":
+        nuclei_tasks.run_nuclei_scan.delay(str(task.id))
     else:
         raise HTTPException(status_code=400, detail=f"Unknown task type: {task_type}")
 
