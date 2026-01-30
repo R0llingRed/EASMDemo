@@ -21,23 +21,23 @@
 
 - [x] 资产指纹哈希计算
 - [x] 去重策略（域名/IP/URL）
-- [ ] 资产合并逻辑
+- [x] 资产合并逻辑
 
 ### 2.2 可信度评分
 
 - [x] 可信度评分模型
-- [ ] 多源交叉验证
-- [ ] 误报标记机制
+- [x] 多源交叉验证
+- [x] 误报标记机制
 
 ### 2.3 扫描治理
 
 - [x] 速率限制（QPS/PPS）
-- [ ] 扫描配额管理
-- [ ] 任务优先级队列
+- [x] 扫描配额管理
+- [x] 任务优先级队列
 
 ### 2.4 其他
 
-- [ ] 扫描黑白名单
+- [x] 扫描黑白名单
 - [ ] 审计日志增强
 
 ---
@@ -53,6 +53,9 @@
 | `worker/app/utils/scan_helpers.py` | 扫描任务辅助函数 |
 | `server/alembic/versions/0006_reliability.py` | 数据库迁移脚本 |
 | `test/test_fingerprint_utils.py` | 指纹工具测试（15个用例） |
+| `server/app/utils/scan_filter.py` | 扫描黑白名单过滤器 |
+| `server/app/utils/vuln_validation.py` | 漏洞可信度评分 |
+| `test/test_scan_utils.py` | 扫描工具测试（13个用例） |
 
 ### 3.2 修改文件
 
@@ -65,6 +68,8 @@
 | `server/app/models/vulnerability.py` | 添加 confidence 字段 |
 | `server/app/crud/subdomain.py` | 集成指纹哈希计算 |
 | `server/app/crud/web_asset.py` | 集成指纹哈希计算 |
+| `server/app/models/scan_task.py` | 添加 priority 字段 |
+| `server/app/schemas/scan_task.py` | 添加 priority 字段 |
 
 ---
 
@@ -104,7 +109,8 @@
 
 ```
 test/test_fingerprint_utils.py - 15 passed
-Total: 60 passed
+test/test_scan_utils.py - 13 passed
+Total: 73 passed
 ```
 
 ---
@@ -117,3 +123,7 @@ Total: 60 passed
 | 2026-01-30 | 完成资产指纹哈希计算与去重 |
 | 2026-01-30 | 完成速率限制器实现 |
 | 2026-01-30 | 添加可信度评分字段 |
+| 2026-01-30 | 完成资产合并逻辑 |
+| 2026-01-30 | 完成扫描黑白名单 |
+| 2026-01-30 | 完成任务优先级队列 |
+| 2026-01-30 | 完成多源验证模块 |
