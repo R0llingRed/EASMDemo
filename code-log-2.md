@@ -141,3 +141,20 @@
 - 增加 Alembic 迁移脚本（0003_scan_tasks）
 - 更新 Worker 配置支持 scan 队列
 
+### 2026-01-30（Code Review 修复）
+
+- 添加域名格式校验防止命令注入
+- 修复 socket 资源泄漏（使用 context manager）
+- batch_size 改为可配置参数
+- 添加类型提示到扫描辅助函数
+- 修复 Page.total 使用真实 count 查询
+- 修复迁移文件默认值语法错误
+
+### 2026-01-30（测试）
+
+- 新增 test/test_scan_helpers.py（域名校验测试）
+- 新增 test/test_port_helpers.py（服务猜测测试）
+- 新增 test/test_nmap_parser.py（nmap 输出解析测试）
+- 新增 test/test_scan_task_crud.py（schema 枚举测试）
+- 全部 11 个测试通过
+

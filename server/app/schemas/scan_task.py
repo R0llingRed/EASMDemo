@@ -10,6 +10,9 @@ class TaskType(str, Enum):
     subdomain_scan = "subdomain_scan"
     dns_resolve = "dns_resolve"
     port_scan = "port_scan"
+    http_probe = "http_probe"
+    fingerprint = "fingerprint"
+    screenshot = "screenshot"
 
 
 class TaskStatus(str, Enum):

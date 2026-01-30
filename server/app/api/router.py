@@ -7,6 +7,7 @@ from server.app.api.ports import router as ports_router
 from server.app.api.projects import router as projects_router
 from server.app.api.scans import router as scans_router
 from server.app.api.subdomains import router as subdomains_router
+from server.app.api.web_assets import router as web_assets_router
 
 api_router = APIRouter()
 api_router.include_router(health_router)
@@ -16,3 +17,4 @@ api_router.include_router(scans_router)
 api_router.include_router(subdomains_router)
 api_router.include_router(ips_router)
 api_router.include_router(ports_router)
+api_router.include_router(web_assets_router)

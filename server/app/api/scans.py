@@ -10,7 +10,10 @@ from server.app.db.session import get_db
 from server.app.models.project import Project
 from server.app.schemas.common import Page
 from server.app.schemas.scan_task import ScanTaskCreate, ScanTaskOut
+from worker.app.tasks import fingerprint as fingerprint_tasks
+from worker.app.tasks import http_probe as http_probe_tasks
 from worker.app.tasks import scan as scan_tasks
+from worker.app.tasks import screenshot as screenshot_tasks
 
 router = APIRouter(prefix="/projects/{project_id}/scans", tags=["scans"])
 
@@ -84,5 +87,17 @@ def start_scan(
     if task.status != "pending":
         raise HTTPException(status_code=400, detail="Task is not in pending status")
 
-    scan_tasks.run_scan.delay(str(task.id))
+    # Dispatch to the correct Celery task based on task_type
+    task_type = task.task_type
+    if task_type in ("subdomain_scan", "dns_resolve", "port_scan"):
+        scan_tasks.run_scan.delay(str(task.id))
+    elif task_type == "http_probe":
+        http_probe_tasks.run_http_probe.delay(str(task.id))
+    elif task_type == "fingerprint":
+        fingerprint_tasks.run_fingerprint.delay(str(task.id))
+    elif task_type == "screenshot":
+        screenshot_tasks.run_screenshot.delay(str(task.id))
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown task type: {task_type}")
+
     return task
