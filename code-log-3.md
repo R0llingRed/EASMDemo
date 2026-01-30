@@ -58,6 +58,10 @@
 | `test/test_fingerprint.py` | 指纹识别测试 |
 | `test/test_http_probe.py` | HTTP 探测测试 |
 | `test/test_web_asset.py` | Web 资产模式测试 |
+| `worker/app/fingerprint/__init__.py` | 指纹模块入口 |
+| `worker/app/fingerprint/engine.py` | 指纹匹配引擎 |
+| `worker/app/fingerprint/loader.py` | 指纹库加载器 |
+| `test/test_fingerprint_engine.py` | 指纹引擎测试 |
 
 ### 3.2 修改文件
 
@@ -88,8 +92,20 @@
 
 ### 5.2 指纹识别
 
+**基础指纹识别（内置）：**
 - 基于 Server 头识别：Nginx, Apache, IIS, Tomcat
 - 基于 Title 识别：WordPress, Drupal, Jenkins, GitLab, Grafana 等 13 种
+
+**FingerprintHub 集成（700+ 指纹规则）：**
+- 集成 [0x727/FingerprintHub](https://github.com/0x727/FingerprintHub) 指纹库
+- 支持三种匹配器类型：word（关键词）、regex（正则）、favicon（图标哈希）
+- 支持 header/body 匹配位置
+- 支持 and/or 匹配条件
+- 指纹库路径：`EASM_FINGERPRINT_DB` 环境变量（默认 `/app/data/fingerprints/web_fingerprint_v4.json`）
+
+**指纹引擎模块：**
+- `worker/app/fingerprint/engine.py` - 指纹匹配引擎
+- `worker/app/fingerprint/loader.py` - 指纹库加载器
 
 ### 5.3 截图
 
@@ -105,7 +121,8 @@
 test/test_fingerprint.py - 9 passed
 test/test_http_probe.py - 8 passed
 test/test_web_asset.py - 3 passed
-Total: 20 passed
+test/test_fingerprint_engine.py - 6 passed
+Total: 26 passed
 ```
 
 ---
@@ -118,3 +135,6 @@ Total: 20 passed
 | 2026-01-30 | 完成 HTTP 探测、指纹识别、截图 Celery 任务 |
 | 2026-01-30 | 完成数据库迁移 0004_web_assets |
 | 2026-01-30 | 完成单元测试（20 个测试用例） |
+| 2026-01-30 | 集成 FingerprintHub 指纹库（700+ 规则） |
+| 2026-01-30 | 新增指纹匹配引擎（支持 word/regex/favicon） |
+| 2026-01-30 | 新增指纹引擎测试（6 个测试用例） |

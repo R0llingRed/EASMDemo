@@ -1,11 +1,25 @@
 """Fingerprint identification tasks."""
+import hashlib
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from worker.app.celery_app import celery_app
+from worker.app.fingerprint import FingerprintEngine, load_fingerprints
 
 logger = logging.getLogger(__name__)
+
+# Global engine instance (lazy loaded)
+_engine: Optional[FingerprintEngine] = None
+
+
+def get_engine() -> FingerprintEngine:
+    """Get or create the fingerprint engine."""
+    global _engine
+    if _engine is None:
+        fingerprints = load_fingerprints()
+        _engine = FingerprintEngine(fingerprints)
+    return _engine
 
 
 @celery_app.task(bind=True, name="worker.app.tasks.fingerprint.run_fingerprint")
@@ -41,12 +55,15 @@ def _run_fingerprint(db, task) -> Dict[str, Any]:
 
     config = task.config or {}
     batch_size = config.get("batch_size", 500)
+    use_engine = config.get("use_fingerprinthub", True)
 
     assets = list_web_assets(db, task.project_id, is_alive=True, limit=batch_size)
     identified_count = 0
 
+    engine = get_engine() if use_engine else None
+
     for asset in assets:
-        fingerprints = _identify_fingerprints(asset)
+        fingerprints = _identify_fingerprints_for_asset(asset, engine)
         if fingerprints:
             upsert_web_asset(
                 db=db,
@@ -59,7 +76,35 @@ def _run_fingerprint(db, task) -> Dict[str, Any]:
     return {"assets_scanned": len(assets), "identified": identified_count}
 
 
+def _identify_fingerprints_for_asset(
+    asset, engine: Optional[FingerprintEngine]
+) -> List[str]:
+    """Identify fingerprints for a single asset."""
+    fingerprints = []
+
+    # Always run basic fingerprinting
+    fingerprints.extend(_identify_fingerprints_basic(asset))
+
+    # Use FingerprintHub engine if available
+    if engine:
+        try:
+            body, headers, favicon_hash = _fetch_response(asset.url)
+            results = engine.match(body=body, headers=headers, favicon_hash=favicon_hash)
+            for r in results:
+                if r.name and r.name not in fingerprints:
+                    fingerprints.append(r.name)
+        except Exception as e:
+            logger.debug(f"Engine matching failed for {asset.url}: {e}")
+
+    return fingerprints
+
+
 def _identify_fingerprints(asset) -> List[str]:
+    """Identify fingerprints based on asset attributes (legacy)."""
+    return _identify_fingerprints_basic(asset)
+
+
+def _identify_fingerprints_basic(asset) -> List[str]:
     """Identify fingerprints based on asset attributes."""
     fingerprints = []
 
@@ -103,3 +148,65 @@ def _check_title_fingerprints(title: str, fingerprints: List[str]) -> None:
     for pattern, name in patterns.items():
         if pattern in title:
             fingerprints.append(name)
+
+
+def _fetch_response(url: str) -> tuple:
+    """Fetch URL and return body, headers, and favicon hash."""
+    import ssl
+    import urllib.request
+
+    body = ""
+    headers = {}
+    favicon_hash = None
+
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "EASM-Scanner/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+            body = resp.read(65536).decode("utf-8", errors="ignore")
+            headers = dict(resp.headers)
+
+            # Try to fetch favicon
+            favicon_hash = _fetch_favicon_hash(url, body, ctx)
+    except Exception as e:
+        logger.debug(f"Failed to fetch {url}: {e}")
+
+    return body, headers, favicon_hash
+
+
+def _fetch_favicon_hash(url: str, body: str, ctx) -> Optional[str]:
+    """Extract and hash favicon from page."""
+    import re
+    import urllib.request
+    from urllib.parse import urljoin
+
+    # Try to find favicon link in HTML
+    favicon_url = None
+    match = re.search(
+        r'<link[^>]+rel=["\'](?:shortcut )?icon["\'][^>]+href=["\']([^"\']+)["\']',
+        body,
+        re.I,
+    )
+    if match:
+        favicon_url = urljoin(url, match.group(1))
+    else:
+        # Default favicon path
+        favicon_url = urljoin(url, "/favicon.ico")
+
+    try:
+        req = urllib.request.Request(
+            favicon_url, headers={"User-Agent": "EASM-Scanner/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=5, context=ctx) as resp:
+            favicon_data = resp.read(32768)
+            if favicon_data:
+                return hashlib.md5(favicon_data).hexdigest()
+    except Exception:
+        pass
+
+    return None
