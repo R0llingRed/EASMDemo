@@ -51,7 +51,13 @@ def list_scans(
         skip=skip,
         limit=limit,
     )
-    return Page(items=tasks, total=len(tasks), skip=skip, limit=limit)
+    total = crud_scan_task.count_scan_tasks(
+        db=db,
+        project_id=project.id,
+        task_type=task_type,
+        status=status,
+    )
+    return Page(items=tasks, total=total, skip=skip, limit=limit)
 
 
 @router.get("/{task_id}", response_model=ScanTaskOut)

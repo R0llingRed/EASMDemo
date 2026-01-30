@@ -1,9 +1,16 @@
 import logging
+import re
+from typing import Any, Dict, List
 from uuid import UUID
 
 from worker.app.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
+
+# Domain validation regex
+DOMAIN_PATTERN = re.compile(
+    r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
+)
 
 
 @celery_app.task(bind=True, name="worker.app.tasks.scan.run_scan")
@@ -43,7 +50,7 @@ def run_scan(self, task_id: str):
         db.close()
 
 
-def _run_subdomain_scan(db, task):
+def _run_subdomain_scan(db, task) -> Dict[str, Any]:
     """Run subdomain enumeration for a domain."""
     from server.app.crud.subdomain import bulk_upsert_subdomains
 
@@ -51,6 +58,10 @@ def _run_subdomain_scan(db, task):
     domain = config.get("domain")
     if not domain:
         raise ValueError("domain is required in config")
+
+    # Validate domain format
+    if not DOMAIN_PATTERN.match(domain):
+        raise ValueError(f"Invalid domain format: {domain}")
 
     logger.info(f"Starting subdomain scan for {domain}")
 
@@ -66,7 +77,7 @@ def _run_subdomain_scan(db, task):
     return {"domain": domain, "subdomains_found": count}
 
 
-def _enumerate_subdomains(domain: str) -> list:
+def _enumerate_subdomains(domain: str) -> List[str]:
     """Enumerate subdomains using subfinder or fallback to simulation."""
     import shutil
     import subprocess
@@ -90,7 +101,7 @@ def _enumerate_subdomains(domain: str) -> list:
     return [f"{p}.{domain}" for p in common_prefixes]
 
 
-def _run_dns_resolve(db, task):
+def _run_dns_resolve(db, task) -> Dict[str, Any]:
     """Resolve DNS for subdomains in the project."""
     import socket
 
@@ -99,8 +110,9 @@ def _run_dns_resolve(db, task):
 
     config = task.config or {}
     root_domain = config.get("root_domain")
+    batch_size = config.get("batch_size", 1000)
 
-    subdomains = list_subdomains(db, task.project_id, root_domain=root_domain, limit=1000)
+    subdomains = list_subdomains(db, task.project_id, root_domain=root_domain, limit=batch_size)
     resolved_count = 0
 
     for sub in subdomains:
@@ -124,15 +136,16 @@ def _run_dns_resolve(db, task):
     return {"subdomains_processed": len(subdomains), "resolved": resolved_count}
 
 
-def _run_port_scan(db, task):
+def _run_port_scan(db, task) -> Dict[str, Any]:
     """Scan ports for IPs in the project."""
     from server.app.crud.ip_address import list_ip_addresses
     from server.app.crud.port import upsert_port
 
     config = task.config or {}
     ports_to_scan = config.get("ports", [80, 443, 22, 21, 8080, 8443, 3306, 3389])
+    batch_size = config.get("batch_size", 1000)
 
-    ips = list_ip_addresses(db, task.project_id, limit=1000)
+    ips = list_ip_addresses(db, task.project_id, limit=batch_size)
     open_ports_count = 0
 
     for ip_obj in ips:
@@ -151,7 +164,7 @@ def _run_port_scan(db, task):
     return {"ips_scanned": len(ips), "open_ports": open_ports_count}
 
 
-def _scan_ports(ip: str, ports: list) -> list:
+def _scan_ports(ip: str, ports: List[int]) -> List[Dict[str, Any]]:
     """Scan ports using socket or nmap."""
     import shutil
     import socket
@@ -175,19 +188,17 @@ def _scan_ports(ip: str, ports: list) -> list:
     open_ports = []
     for port in ports:
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(2)
-            if sock.connect_ex((ip, port)) == 0:
-                open_ports.append({"port": port, "service": _guess_service(port)})
-            sock.close()
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(2)
+                if sock.connect_ex((ip, port)) == 0:
+                    open_ports.append({"port": port, "service": _guess_service(port)})
         except Exception:
             pass
     return open_ports
 
 
-def _parse_nmap_output(output: str) -> list:
+def _parse_nmap_output(output: str) -> List[Dict[str, Any]]:
     """Parse nmap grepable output."""
-    import re
 
     open_ports = []
     for line in output.split("\n"):

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from server.app.api.deps import get_project_dep
-from server.app.crud.subdomain import list_subdomains
+from server.app.crud.subdomain import count_subdomains, list_subdomains
 from server.app.db.session import get_db
 from server.app.models.project import Project
 from server.app.schemas.common import Page
@@ -32,4 +32,5 @@ def list_project_subdomains(
         skip=skip,
         limit=limit,
     )
-    return Page(items=items, total=len(items), skip=skip, limit=limit)
+    total = count_subdomains(db=db, project_id=project.id, root_domain=root_domain)
+    return Page(items=items, total=total, skip=skip, limit=limit)

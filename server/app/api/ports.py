@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from server.app.crud.ip_address import get_ip_address
-from server.app.crud.port import list_ports_by_ip
+from server.app.crud.port import count_ports_by_ip, list_ports_by_ip
 from server.app.db.session import get_db
 from server.app.schemas.common import Page
 from server.app.schemas.port import PortOut
@@ -27,4 +27,5 @@ def list_ip_ports(
     if limit < 1 or limit > 500:
         limit = 100
     items = list_ports_by_ip(db=db, ip_id=ip_id, skip=skip, limit=limit)
-    return Page(items=items, total=len(items), skip=skip, limit=limit)
+    total = count_ports_by_ip(db=db, ip_id=ip_id)
+    return Page(items=items, total=total, skip=skip, limit=limit)

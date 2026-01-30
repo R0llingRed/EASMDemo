@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from server.app.api.deps import get_project_dep
-from server.app.crud.ip_address import list_ip_addresses
+from server.app.crud.ip_address import count_ip_addresses, list_ip_addresses
 from server.app.db.session import get_db
 from server.app.models.project import Project
 from server.app.schemas.common import Page
@@ -28,4 +28,5 @@ def list_project_ips(
         skip=skip,
         limit=limit,
     )
-    return Page(items=items, total=len(items), skip=skip, limit=limit)
+    total = count_ip_addresses(db=db, project_id=project.id)
+    return Page(items=items, total=total, skip=skip, limit=limit)

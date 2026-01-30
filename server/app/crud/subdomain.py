@@ -1,10 +1,9 @@
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
-from sqlalchemy.sql import func
 
 from server.app.models.subdomain import Subdomain
 
@@ -88,3 +87,14 @@ def list_subdomains(
         stmt = stmt.where(Subdomain.root_domain == root_domain)
     stmt = stmt.order_by(Subdomain.subdomain).offset(skip).limit(limit)
     return list(db.scalars(stmt).all())
+
+
+def count_subdomains(
+    db: Session,
+    project_id: UUID,
+    root_domain: Optional[str] = None,
+) -> int:
+    stmt = select(func.count()).select_from(Subdomain).where(Subdomain.project_id == project_id)
+    if root_domain:
+        stmt = stmt.where(Subdomain.root_domain == root_domain)
+    return db.scalar(stmt) or 0

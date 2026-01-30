@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from server.app.models.scan_task import ScanTask
@@ -47,6 +47,20 @@ def list_scan_tasks(
         stmt = stmt.where(ScanTask.status == status)
     stmt = stmt.order_by(ScanTask.created_at.desc()).offset(skip).limit(limit)
     return list(db.scalars(stmt).all())
+
+
+def count_scan_tasks(
+    db: Session,
+    project_id: UUID,
+    task_type: Optional[str] = None,
+    status: Optional[str] = None,
+) -> int:
+    stmt = select(func.count()).select_from(ScanTask).where(ScanTask.project_id == project_id)
+    if task_type:
+        stmt = stmt.where(ScanTask.task_type == task_type)
+    if status:
+        stmt = stmt.where(ScanTask.status == status)
+    return db.scalar(stmt) or 0
 
 
 def update_scan_task_status(

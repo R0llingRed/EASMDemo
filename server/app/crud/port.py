@@ -1,10 +1,9 @@
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
-from sqlalchemy.sql import func
 
 from server.app.models.port import Port
 
@@ -64,3 +63,8 @@ def list_ports_by_ip(
         .limit(limit)
     )
     return list(db.scalars(stmt).all())
+
+
+def count_ports_by_ip(db: Session, ip_id: UUID) -> int:
+    stmt = select(func.count()).select_from(Port).where(Port.ip_id == ip_id)
+    return db.scalar(stmt) or 0

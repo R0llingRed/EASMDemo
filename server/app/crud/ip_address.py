@@ -1,10 +1,9 @@
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
-from sqlalchemy.sql import func
 
 from server.app.models.ip_address import IPAddress
 
@@ -63,3 +62,8 @@ def list_ip_addresses(
         .limit(limit)
     )
     return list(db.scalars(stmt).all())
+
+
+def count_ip_addresses(db: Session, project_id: UUID) -> int:
+    stmt = select(func.count()).select_from(IPAddress).where(IPAddress.project_id == project_id)
+    return db.scalar(stmt) or 0
