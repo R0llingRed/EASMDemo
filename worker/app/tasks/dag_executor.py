@@ -1,0 +1,268 @@
+"""
+DAG Executor - Celery task for executing DAG workflows
+
+This module handles the execution of DAG (Directed Acyclic Graph) workflows,
+managing node dependencies and orchestrating scan tasks.
+"""
+
+import logging
+from typing import Any, Dict, List, Optional, Set
+from uuid import UUID
+
+from celery import shared_task
+from sqlalchemy.orm import Session
+
+from server.app.crud import dag_execution as crud_execution
+from server.app.crud import dag_template as crud_template
+from server.app.crud import scan_task as crud_scan_task
+from server.app.db.session import SessionLocal
+from server.app.models.dag_execution import DAGExecution
+from worker.app.celery_app import celery_app
+from worker.app.tasks import fingerprint as fingerprint_tasks
+from worker.app.tasks import http_probe as http_probe_tasks
+from worker.app.tasks import nuclei_scan as nuclei_tasks
+from worker.app.tasks import scan as scan_tasks
+from worker.app.tasks import screenshot as screenshot_tasks
+from worker.app.tasks import xray_scan as xray_tasks
+
+logger = logging.getLogger(__name__)
+
+
+def get_db() -> Session:
+    """获取数据库会话"""
+    return SessionLocal()
+
+
+def build_dependency_graph(nodes: List[Dict[str, Any]]) -> Dict[str, Set[str]]:
+    """
+    构建依赖图
+
+    Returns:
+        Dict[node_id, Set[依赖的node_id]]
+    """
+    graph = {}
+    for node in nodes:
+        node_id = node.get("id")
+        depends_on = node.get("depends_on", [])
+        graph[node_id] = set(depends_on)
+    return graph
+
+
+def get_ready_nodes(
+    nodes: List[Dict[str, Any]],
+    node_states: Dict[str, str],
+    dependency_graph: Dict[str, Set[str]],
+) -> List[Dict[str, Any]]:
+    """
+    获取可以执行的节点（所有依赖已完成且自身pending）
+
+    Returns:
+        可执行节点列表
+    """
+    ready = []
+    for node in nodes:
+        node_id = node.get("id")
+        # 节点必须是pending状态
+        if node_states.get(node_id) != "pending":
+            continue
+        # 检查所有依赖是否已完成
+        deps = dependency_graph.get(node_id, set())
+        all_deps_completed = all(node_states.get(dep) == "completed" for dep in deps)
+        if all_deps_completed:
+            ready.append(node)
+    return ready
+
+
+def check_execution_complete(node_states: Dict[str, str]) -> tuple[bool, bool]:
+    """
+    检查执行是否完成
+
+    Returns:
+        (is_complete, is_success)
+    """
+    if not node_states:
+        return False, False
+
+    all_completed = all(s in ("completed", "skipped", "failed") for s in node_states.values())
+    has_failure = any(s == "failed" for s in node_states.values())
+
+    if all_completed:
+        return True, not has_failure
+    return False, False
+
+
+def dispatch_scan_task(
+    db: Session,
+    project_id: UUID,
+    task_type: str,
+    config: Dict[str, Any],
+) -> Optional[UUID]:
+    """
+    创建并分发扫描任务
+
+    Returns:
+        scan_task_id
+    """
+    # 创建 scan_task
+    task = crud_scan_task.create_scan_task(
+        db=db,
+        project_id=project_id,
+        task_type=task_type,
+        config=config,
+    )
+
+    # 分发到对应的 Celery 任务
+    task_id = str(task.id)
+    if task_type in ("subdomain_scan", "dns_resolve", "port_scan"):
+        scan_tasks.run_scan.delay(task_id)
+    elif task_type == "http_probe":
+        http_probe_tasks.run_http_probe.delay(task_id)
+    elif task_type == "fingerprint":
+        fingerprint_tasks.run_fingerprint.delay(task_id)
+    elif task_type == "screenshot":
+        screenshot_tasks.run_screenshot.delay(task_id)
+    elif task_type == "nuclei_scan":
+        nuclei_tasks.run_nuclei_scan.delay(task_id)
+    elif task_type == "xray_scan":
+        xray_tasks.run_xray_scan.delay(task_id)
+    else:
+        logger.warning(f"Unknown task type: {task_type}")
+        return None
+
+    return task.id
+
+
+@celery_app.task(bind=True, name="worker.app.tasks.dag_executor.execute_dag")
+def execute_dag(self, execution_id: str) -> Dict[str, Any]:
+    """
+    执行 DAG 工作流
+
+    Args:
+        execution_id: DAG执行实例ID
+    """
+    db = get_db()
+    try:
+        execution = crud_execution.get_dag_execution(db=db, execution_id=UUID(execution_id))
+        if not execution:
+            logger.error(f"DAG execution not found: {execution_id}")
+            return {"status": "error", "message": "Execution not found"}
+
+        # 获取模板
+        template = crud_template.get_dag_template(db=db, template_id=execution.dag_template_id)
+        if not template:
+            crud_execution.update_execution_status(
+                db=db, execution=execution, status="failed", error_message="Template not found"
+            )
+            return {"status": "error", "message": "Template not found"}
+
+        nodes = template.nodes
+        if not nodes:
+            crud_execution.update_execution_status(
+                db=db, execution=execution, status="completed"
+            )
+            return {"status": "completed", "message": "No nodes to execute"}
+
+        # 构建依赖图
+        dependency_graph = build_dependency_graph(nodes)
+        node_states = dict(execution.node_states) if execution.node_states else {}
+
+        # 初始化节点状态
+        for node in nodes:
+            node_id = node.get("id")
+            if node_id not in node_states:
+                node_states[node_id] = "pending"
+
+        # 获取可执行节点
+        ready_nodes = get_ready_nodes(nodes, node_states, dependency_graph)
+
+        if not ready_nodes:
+            # 检查是否已完成
+            is_complete, is_success = check_execution_complete(node_states)
+            if is_complete:
+                status = "completed" if is_success else "failed"
+                crud_execution.update_execution_status(db=db, execution=execution, status=status)
+                return {"status": status}
+            else:
+                # 可能有节点正在运行
+                return {"status": "waiting", "message": "Waiting for running nodes"}
+
+        # 执行就绪节点
+        input_config = execution.input_config or {}
+        for node in ready_nodes:
+            node_id = node.get("id")
+            task_type = node.get("task_type")
+            node_config = {**input_config, **node.get("config", {})}
+
+            # 更新节点状态为 running
+            crud_execution.update_node_state(db=db, execution=execution, node_id=node_id, state="running")
+            node_states[node_id] = "running"
+
+            # 分发扫描任务
+            task_id = dispatch_scan_task(
+                db=db,
+                project_id=execution.project_id,
+                task_type=task_type,
+                config=node_config,
+            )
+
+            if task_id:
+                crud_execution.update_node_state(
+                    db=db, execution=execution, node_id=node_id, state="running", task_id=task_id
+                )
+                logger.info(f"Dispatched task {task_type} for node {node_id}, task_id={task_id}")
+            else:
+                crud_execution.update_node_state(
+                    db=db, execution=execution, node_id=node_id, state="failed"
+                )
+                node_states[node_id] = "failed"
+                logger.error(f"Failed to dispatch task for node {node_id}")
+
+        return {
+            "status": "running",
+            "dispatched_nodes": [n.get("id") for n in ready_nodes],
+        }
+
+    except Exception as e:
+        logger.exception(f"DAG execution error: {e}")
+        if execution:
+            crud_execution.update_execution_status(
+                db=db, execution=execution, status="failed", error_message=str(e)
+            )
+        return {"status": "error", "message": str(e)}
+    finally:
+        db.close()
+
+
+@celery_app.task(bind=True, name="worker.app.tasks.dag_executor.on_node_completed")
+def on_node_completed(self, execution_id: str, node_id: str, success: bool = True) -> Dict[str, Any]:
+    """
+    节点完成回调 - 检查并触发下游节点
+
+    Args:
+        execution_id: DAG执行实例ID
+        node_id: 完成的节点ID
+        success: 是否成功
+    """
+    db = get_db()
+    try:
+        execution = crud_execution.get_dag_execution(db=db, execution_id=UUID(execution_id))
+        if not execution:
+            return {"status": "error", "message": "Execution not found"}
+
+        # 更新节点状态
+        state = "completed" if success else "failed"
+        crud_execution.update_node_state(db=db, execution=execution, node_id=node_id, state=state)
+
+        # 重新获取执行实例以获取最新状态
+        db.refresh(execution)
+
+        # 继续执行DAG
+        execute_dag.delay(execution_id)
+
+        return {"status": "ok", "node_id": node_id, "state": state}
+
+    except Exception as e:
+        logger.exception(f"on_node_completed error: {e}")
+        return {"status": "error", "message": str(e)}
+    finally:
+        db.close()

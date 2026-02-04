@@ -1,14 +1,18 @@
 from fastapi import APIRouter
 
 from server.app.api.assets import router as assets_router
+from server.app.api.dag_executions import router as dag_executions_router
+from server.app.api.dag_templates import router as dag_templates_router
+from server.app.api.event_triggers import events_router, router as event_triggers_router
 from server.app.api.health import router as health_router
 from server.app.api.ips import router as ips_router
+from server.app.api.policies import router as policies_router
 from server.app.api.ports import router as ports_router
 from server.app.api.projects import router as projects_router
 from server.app.api.scans import router as scans_router
 from server.app.api.subdomains import router as subdomains_router
-from server.app.api.web_assets import router as web_assets_router
 from server.app.api.vulnerabilities import router as vulnerabilities_router
+from server.app.api.web_assets import router as web_assets_router
 
 api_router = APIRouter()
 api_router.include_router(health_router)
@@ -20,3 +24,8 @@ api_router.include_router(ips_router)
 api_router.include_router(ports_router)
 api_router.include_router(web_assets_router)
 api_router.include_router(vulnerabilities_router)
+api_router.include_router(policies_router)
+api_router.include_router(dag_templates_router)
+api_router.include_router(dag_executions_router)
+api_router.include_router(event_triggers_router)
+api_router.include_router(events_router)

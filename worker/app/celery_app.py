@@ -14,6 +14,8 @@ celery_app = Celery(
         "worker.app.tasks.screenshot",
         "worker.app.tasks.nuclei_scan",
         "worker.app.tasks.xray_scan",
+        "worker.app.tasks.dag_executor",
+        "worker.app.tasks.event_handler",
     ],
 )
 
@@ -26,5 +28,11 @@ celery_app.conf.update(
         "worker.app.tasks.screenshot.run_screenshot": {"queue": "scan"},
         "worker.app.tasks.nuclei_scan.run_nuclei_scan": {"queue": "scan"},
         "worker.app.tasks.xray_scan.run_xray_scan": {"queue": "scan"},
+        "worker.app.tasks.dag_executor.execute_dag": {"queue": "orchestration"},
+        "worker.app.tasks.dag_executor.on_node_completed": {"queue": "orchestration"},
+        "worker.app.tasks.event_handler.process_event": {"queue": "orchestration"},
+        "worker.app.tasks.event_handler.emit_asset_event": {"queue": "orchestration"},
+        "worker.app.tasks.event_handler.emit_scan_event": {"queue": "orchestration"},
     },
 )
+
