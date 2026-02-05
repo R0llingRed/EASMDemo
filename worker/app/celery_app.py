@@ -16,6 +16,9 @@ celery_app = Celery(
         "worker.app.tasks.xray_scan",
         "worker.app.tasks.dag_executor",
         "worker.app.tasks.event_handler",
+        "worker.app.tasks.risk_calculator",
+        "worker.app.tasks.alerter",
+        "worker.app.tasks.notifier",
     ],
 )
 
@@ -33,6 +36,13 @@ celery_app.conf.update(
         "worker.app.tasks.event_handler.process_event": {"queue": "orchestration"},
         "worker.app.tasks.event_handler.emit_asset_event": {"queue": "orchestration"},
         "worker.app.tasks.event_handler.emit_scan_event": {"queue": "orchestration"},
+        "worker.app.tasks.risk_calculator.calculate_project_risks": {"queue": "alerting"},
+        "worker.app.tasks.alerter.check_vulnerability_alert": {"queue": "alerting"},
+        "worker.app.tasks.alerter.check_risk_score_alert": {"queue": "alerting"},
+        "worker.app.tasks.alerter.send_alert_notifications": {"queue": "alerting"},
+        "worker.app.tasks.notifier.send_notification": {"queue": "alerting"},
+        "worker.app.tasks.notifier.test_channel": {"queue": "alerting"},
     },
 )
+
 
