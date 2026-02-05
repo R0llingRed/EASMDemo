@@ -14,6 +14,30 @@ from server.app.schemas.dag_template import DAGTemplateCreate, DAGTemplateOut, D
 router = APIRouter(prefix="/projects/{project_id}/dag-templates", tags=["dag-templates"])
 
 
+def detect_cycle(nodes) -> bool:
+    """检测DAG中是否存在循环依赖"""
+    graph = {}
+    for node in nodes:
+        node_id = node.id if hasattr(node, 'id') else node.get("id")
+        depends_on = node.depends_on if hasattr(node, 'depends_on') else node.get("depends_on", [])
+        graph[node_id] = set(depends_on)
+    
+    visited, rec_stack = set(), set()
+    
+    def dfs(node_id):
+        visited.add(node_id)
+        rec_stack.add(node_id)
+        for dep in graph.get(node_id, set()):
+            if dep not in visited and dfs(dep):
+                return True
+            elif dep in rec_stack:
+                return True
+        rec_stack.remove(node_id)
+        return False
+    
+    return any(dfs(n) for n in graph if n not in visited)
+
+
 @router.post("", response_model=DAGTemplateOut, status_code=201)
 def create_template(
     body: DAGTemplateCreate,
@@ -36,6 +60,10 @@ def create_template(
                     status_code=400,
                     detail=f"Node '{node.id}' depends on unknown node '{dep}'",
                 )
+
+    # 检测循环依赖
+    if detect_cycle(body.nodes):
+        raise HTTPException(status_code=400, detail="Circular dependency detected in DAG")
 
     template = crud_template.create_dag_template(
         db=db,
@@ -127,6 +155,9 @@ def update_template(
                         status_code=400,
                         detail=f"Node '{node.id}' depends on unknown node '{dep}'",
                     )
+        # 检测循环依赖
+        if detect_cycle(body.nodes):
+            raise HTTPException(status_code=400, detail="Circular dependency detected in DAG")
 
     update_data = body.model_dump(exclude_unset=True)
     if "nodes" in update_data and update_data["nodes"]:

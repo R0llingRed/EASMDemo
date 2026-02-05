@@ -146,8 +146,11 @@ def process_event(
                     node_id = node.get("id") if isinstance(node, dict) else node.id
                     initial_node_states[node_id] = "pending"
 
-                # 合并配置
-                input_config = {**trigger.dag_config, **event_data}
+                # 安全合并配置：触发器配置优先于事件数据，防止恶意覆盖
+                # 事件数据只允许白名单字段
+                safe_event_keys = {"asset_id", "asset_type", "scan_task_id", "task_type", "severity", "target", "source"}
+                filtered_event_data = {k: v for k, v in event_data.items() if k in safe_event_keys}
+                input_config = {**filtered_event_data, **trigger.dag_config}
 
                 # 创建DAG执行实例
                 execution = crud_execution.create_dag_execution(
@@ -159,7 +162,7 @@ def process_event(
                         "event_type": event_type,
                         "trigger_id": str(trigger.id),
                         "trigger_name": trigger.name,
-                        "event_data": event_data,
+                        "event_data": event_data,  # 保留完整事件数据用于审计
                     },
                     input_config=input_config,
                     initial_node_states=initial_node_states,

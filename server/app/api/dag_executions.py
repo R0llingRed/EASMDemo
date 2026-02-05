@@ -10,7 +10,7 @@ from server.app.crud import dag_template as crud_template
 from server.app.db.session import get_db
 from server.app.models.project import Project
 from server.app.schemas.common import Page
-from server.app.schemas.dag_execution import DAGExecutionCreate, DAGExecutionOut
+from server.app.schemas.dag_execution import DAGExecutionCreate, DAGExecutionOut, DAGExecutionStatus
 from worker.app.tasks import dag_executor
 
 router = APIRouter(prefix="/projects/{project_id}/dag-executions", tags=["dag-executions"])
@@ -53,7 +53,7 @@ def create_execution(
 @router.get("", response_model=Page[DAGExecutionOut])
 def list_executions(
     dag_template_id: Optional[UUID] = None,
-    status: Optional[str] = None,
+    status: Optional[DAGExecutionStatus] = None,  # 使用枚举验证
     skip: int = 0,
     limit: int = 20,
     project: Project = Depends(get_project_dep),
@@ -64,11 +64,15 @@ def list_executions(
         skip = 0
     if limit < 1 or limit > 100:
         limit = 20
+    
+    # 转换枚举为字符串
+    status_str = status.value if status else None
+    
     items = crud_execution.list_dag_executions(
         db=db,
         project_id=project.id,
         dag_template_id=dag_template_id,
-        status=status,
+        status=status_str,
         skip=skip,
         limit=limit,
     )
@@ -76,7 +80,7 @@ def list_executions(
         db=db,
         project_id=project.id,
         dag_template_id=dag_template_id,
-        status=status,
+        status=status_str,
     )
     return Page(items=items, total=total, skip=skip, limit=limit)
 

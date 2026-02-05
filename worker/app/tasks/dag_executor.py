@@ -27,10 +27,63 @@ from worker.app.tasks import xray_scan as xray_tasks
 
 logger = logging.getLogger(__name__)
 
+# 任务类型到处理器的映射
+TASK_DISPATCHERS = {
+    "subdomain_scan": scan_tasks.run_scan,
+    "dns_resolve": scan_tasks.run_scan,
+    "port_scan": scan_tasks.run_scan,
+    "http_probe": http_probe_tasks.run_http_probe,
+    "fingerprint": fingerprint_tasks.run_fingerprint,
+    "screenshot": screenshot_tasks.run_screenshot,
+    "nuclei_scan": nuclei_tasks.run_nuclei_scan,
+    "xray_scan": xray_tasks.run_xray_scan,
+}
+
 
 def get_db() -> Session:
     """获取数据库会话"""
     return SessionLocal()
+
+
+def detect_cycle(nodes: List[Dict[str, Any]]) -> bool:
+    """
+    检测 DAG 中是否存在循环依赖
+    
+    Args:
+        nodes: 节点列表
+        
+    Returns:
+        True 如果存在循环，False 如果不存在
+    """
+    graph = {}
+    for node in nodes:
+        node_id = node.get("id") if isinstance(node, dict) else node.id
+        depends_on = node.get("depends_on", []) if isinstance(node, dict) else getattr(node, "depends_on", [])
+        graph[node_id] = set(depends_on)
+    
+    visited = set()
+    rec_stack = set()
+    
+    def dfs(node_id: str) -> bool:
+        visited.add(node_id)
+        rec_stack.add(node_id)
+        
+        for dep in graph.get(node_id, set()):
+            if dep not in visited:
+                if dfs(dep):
+                    return True
+            elif dep in rec_stack:
+                return True
+        
+        rec_stack.remove(node_id)
+        return False
+    
+    for node_id in graph:
+        if node_id not in visited:
+            if dfs(node_id):
+                return True
+    
+    return False
 
 
 def build_dependency_graph(nodes: List[Dict[str, Any]]) -> Dict[str, Set[str]]:
@@ -111,25 +164,16 @@ def dispatch_scan_task(
         config=config,
     )
 
-    # 分发到对应的 Celery 任务
+    # 使用映射分发到对应的 Celery 任务
     task_id = str(task.id)
-    if task_type in ("subdomain_scan", "dns_resolve", "port_scan"):
-        scan_tasks.run_scan.delay(task_id)
-    elif task_type == "http_probe":
-        http_probe_tasks.run_http_probe.delay(task_id)
-    elif task_type == "fingerprint":
-        fingerprint_tasks.run_fingerprint.delay(task_id)
-    elif task_type == "screenshot":
-        screenshot_tasks.run_screenshot.delay(task_id)
-    elif task_type == "nuclei_scan":
-        nuclei_tasks.run_nuclei_scan.delay(task_id)
-    elif task_type == "xray_scan":
-        xray_tasks.run_xray_scan.delay(task_id)
+    dispatcher = TASK_DISPATCHERS.get(task_type)
+    
+    if dispatcher:
+        dispatcher.delay(task_id)
+        return task.id
     else:
         logger.warning(f"Unknown task type: {task_type}")
         return None
-
-    return task.id
 
 
 @celery_app.task(bind=True, name="worker.app.tasks.dag_executor.execute_dag")
@@ -141,6 +185,7 @@ def execute_dag(self, execution_id: str) -> Dict[str, Any]:
         execution_id: DAG执行实例ID
     """
     db = get_db()
+    execution = None  # 初始化以避免异常处理时的未定义引用
     try:
         execution = crud_execution.get_dag_execution(db=db, execution_id=UUID(execution_id))
         if not execution:

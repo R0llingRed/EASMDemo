@@ -96,19 +96,30 @@ def update_node_state(
     state: str,
     task_id: Optional[UUID] = None,
 ) -> DAGExecution:
-    """更新节点状态"""
-    node_states = dict(execution.node_states) if execution.node_states else {}
+    """
+    更新节点状态（带行级锁防止并发问题）
+    """
+    # 使用 SELECT FOR UPDATE 获取行级锁
+    locked_execution = db.query(DAGExecution).filter(
+        DAGExecution.id == execution.id
+    ).with_for_update().first()
+    
+    if not locked_execution:
+        db.refresh(execution)
+        return execution
+    
+    node_states = dict(locked_execution.node_states) if locked_execution.node_states else {}
     node_states[node_id] = state
-    execution.node_states = node_states
+    locked_execution.node_states = node_states
 
     if task_id:
-        node_task_ids = dict(execution.node_task_ids) if execution.node_task_ids else {}
+        node_task_ids = dict(locked_execution.node_task_ids) if locked_execution.node_task_ids else {}
         node_task_ids[node_id] = str(task_id)
-        execution.node_task_ids = node_task_ids
+        locked_execution.node_task_ids = node_task_ids
 
     db.commit()
-    db.refresh(execution)
-    return execution
+    db.refresh(locked_execution)
+    return locked_execution
 
 
 def get_running_executions(db: Session, project_id: Optional[UUID] = None) -> List[DAGExecution]:

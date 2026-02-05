@@ -107,17 +107,28 @@ def increment_trigger_count(
     trigger: EventTrigger,
     success: bool = True,
 ) -> EventTrigger:
-    """增加触发计数"""
-    counts = dict(trigger.trigger_count) if trigger.trigger_count else {"total": 0, "success": 0, "failed": 0}
+    """
+    增加触发计数（带行级锁防止并发问题）
+    """
+    # 使用 SELECT FOR UPDATE 获取行级锁
+    locked_trigger = db.query(EventTrigger).filter(
+        EventTrigger.id == trigger.id
+    ).with_for_update().first()
+    
+    if not locked_trigger:
+        db.refresh(trigger)
+        return trigger
+    
+    counts = dict(locked_trigger.trigger_count) if locked_trigger.trigger_count else {"total": 0, "success": 0, "failed": 0}
     counts["total"] = counts.get("total", 0) + 1
     if success:
         counts["success"] = counts.get("success", 0) + 1
     else:
         counts["failed"] = counts.get("failed", 0) + 1
-    trigger.trigger_count = counts
+    locked_trigger.trigger_count = counts
     db.commit()
-    db.refresh(trigger)
-    return trigger
+    db.refresh(locked_trigger)
+    return locked_trigger
 
 
 def delete_event_trigger(db: Session, trigger: EventTrigger) -> None:
