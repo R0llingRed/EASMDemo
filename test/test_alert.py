@@ -225,10 +225,10 @@ class TestAlerterLogic:
     def generate_aggregation_key(
         self, project_id: str, target_type: str, severity: str, alert_type: str
     ) -> str:
-        """生成告警聚合键"""
+        """生成告警聚合键（使用 SHA256）"""
         import hashlib
         key = f"{project_id}:{target_type}:{severity}:{alert_type}"
-        return hashlib.md5(key.encode()).hexdigest()[:16]
+        return hashlib.sha256(key.encode()).hexdigest()[:16]
 
     def test_severity_threshold_check_pass(self):
         """测试严重度阈值检查 - 通过"""

@@ -59,9 +59,11 @@ def calculate_vulnerability_factor(
     """计算漏洞因子分数"""
     from server.app.models.vulnerability import Vulnerability
     
-    # 查询资产相关漏洞
+    # 查询资产相关漏洞（按资产类型和ID过滤）
     vulns = db.query(Vulnerability).filter(
         Vulnerability.project_id == project_id,
+        Vulnerability.target_type == asset_type,
+        Vulnerability.target_id == asset_id,
     ).all()
     
     # 统计各等级漏洞数量
@@ -100,8 +102,14 @@ def calculate_exposure_factor(
     # 高风险端口
     high_risk_ports = {22, 23, 25, 445, 3389, 1433, 3306, 5432, 6379, 27017}
     
-    # 查询开放端口
-    ports = db.query(Port).filter(Port.project_id == project_id).all()
+    # 查询开放端口（按资产过滤）
+    query = db.query(Port).filter(Port.project_id == project_id)
+    
+    # 如果是 IP 地址资产，按 IP 过滤
+    if asset_type == "ip_address":
+        query = query.filter(Port.ip_address_id == asset_id)
+    
+    ports = query.all()
     
     open_ports = len(ports)
     high_risk_count = sum(1 for p in ports if p.port in high_risk_ports)
@@ -133,8 +141,9 @@ def calculate_asset_risk(
         asset_id: 资产ID
         factors: 风险因子列表
     """
-    db = get_db()
+    db = None
     try:
+        db = get_db()
         factor_scores = {}
         total_weight = 0
         weighted_score = 0
@@ -200,7 +209,8 @@ def calculate_asset_risk(
         logger.exception(f"Error calculating risk for asset {asset_id}: {e}")
         return {"status": "error", "message": str(e)}
     finally:
-        db.close()
+        if db:
+            db.close()
 
 
 @celery_app.task(bind=True, name="worker.app.tasks.risk_calculator.calculate_project_risks")

@@ -41,9 +41,9 @@ def generate_aggregation_key(
     severity: str,
     alert_type: str,
 ) -> str:
-    """生成告警聚合键"""
+    """生成告警聚合键（使用 SHA256）"""
     key = f"{project_id}:{target_type}:{severity}:{alert_type}"
-    return hashlib.md5(key.encode()).hexdigest()[:16]
+    return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
 def check_severity_threshold(severity: str, threshold: str) -> bool:
@@ -267,8 +267,9 @@ def send_alert_notifications(
     """
     发送告警通知到指定渠道
     """
-    db = get_db()
+    db = None
     try:
+        db = get_db()
         alert_uuid = UUID(alert_id)
         record = crud_alert.get_alert_record(db=db, record_id=alert_uuid)
         
@@ -290,11 +291,9 @@ def send_alert_notifications(
             if not channel or not channel.enabled:
                 continue
             
-            # 调用通知任务
+            # 调用通知任务（安全：不传递敏感配置，由 worker 从 DB 获取）
             notifier.send_notification.delay(
                 channel_id=channel_id,
-                channel_type=channel.channel_type,
-                config=channel.config,
                 notification_data=notification_data,
                 alert_id=alert_id,
             )
@@ -309,4 +308,6 @@ def send_alert_notifications(
         logger.exception(f"Error sending alert notifications: {e}")
         return {"status": "error", "message": str(e)}
     finally:
-        db.close()
+        if db:
+            db.close()
+

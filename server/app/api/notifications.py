@@ -118,30 +118,46 @@ def test_notification_channel(
     if not channel or channel.project_id != project.id:
         raise HTTPException(status_code=404, detail="Notification channel not found")
     
-    # 异步发送测试通知
+    # 异步发送测试通知（安全：不传递敏感配置）
     notifier.test_channel.delay(
         channel_id=str(channel_id),
-        channel_type=channel.channel_type,
-        config=channel.config,
     )
     
     return {"message": "Test notification sent", "channel_id": str(channel_id)}
 
 
-def _mask_sensitive_config(config: dict) -> dict:
-    """脱敏敏感配置字段"""
-    if not config:
+def _mask_sensitive_config(config: dict, depth: int = 0) -> dict:
+    """
+    脱敏敏感配置字段（递归处理嵌套对象）
+    
+    Args:
+        config: 配置字典
+        depth: 递归深度（防止无限递归）
+    """
+    if not config or depth > 5:
         return config
     
-    sensitive_keys = ["token", "secret", "password", "api_key", "access_token", "webhook_url"]
-    masked = dict(config)
+    sensitive_keys = ["token", "secret", "password", "api_key", "access_token", "key", "credential"]
+    masked = {}
     
-    for key in masked:
-        if any(sk in key.lower() for sk in sensitive_keys):
-            value = masked[key]
+    for key, value in config.items():
+        if isinstance(value, dict):
+            # 递归处理嵌套字典
+            masked[key] = _mask_sensitive_config(value, depth + 1)
+        elif isinstance(value, list):
+            # 处理列表（可能包含嵌套字典）
+            masked[key] = [
+                _mask_sensitive_config(item, depth + 1) if isinstance(item, dict) else item
+                for item in value
+            ]
+        elif any(sk in key.lower() for sk in sensitive_keys):
+            # 脱敏敏感字段
             if isinstance(value, str) and len(value) > 4:
                 masked[key] = value[:4] + "****"
             else:
                 masked[key] = "****"
+        else:
+            masked[key] = value
     
     return masked
+
