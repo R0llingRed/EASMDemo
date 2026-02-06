@@ -12,6 +12,7 @@ from server.app.schemas.common import Page
 from server.app.schemas.scan_task import ScanTaskCreate, ScanTaskOut
 from worker.app.tasks import fingerprint as fingerprint_tasks
 from worker.app.tasks import http_probe as http_probe_tasks
+from worker.app.tasks import js_api_discovery as js_api_discovery_tasks
 from worker.app.tasks import nuclei_scan as nuclei_tasks
 from worker.app.tasks import scan as scan_tasks
 from worker.app.tasks import screenshot as screenshot_tasks
@@ -103,6 +104,8 @@ def start_scan(
         nuclei_tasks.run_nuclei_scan.delay(str(task.id))
     elif task_type == "xray_scan":
         xray_tasks.run_xray_scan.delay(str(task.id))
+    elif task_type == "js_api_discovery":
+        js_api_discovery_tasks.run_js_api_discovery.delay(str(task.id))
     else:
         raise HTTPException(status_code=400, detail=f"Unknown task type: {task_type}")
 

@@ -30,7 +30,11 @@ curl http://localhost:8000/health
 
 - `EASM_APP_ENV`: environment name (default: dev)
 - `EASM_DATABASE_URL`: SQLAlchemy database URL
-- `EASM_REDIS_URL`: Redis URL
+- `EASM_REDIS_URL`: Redis URL (default: `redis://redis:6379/0` in docker network)
+- `EASM_AUTH_ENABLED`: enable API key auth (default: `true`)
+- `EASM_API_KEYS`: comma-separated API keys for API access
+- `EASM_API_KEY_PROJECT_MAP`: optional JSON ACL map for project-level authorization
+- `EASM_SCAN_VERIFY_TLS`: verify TLS certificates for scanning (default: `true`)
 
 ## Common commands
 

@@ -15,6 +15,7 @@ class TaskType(str, Enum):
     screenshot = "screenshot"
     nuclei_scan = "nuclei_scan"
     xray_scan = "xray_scan"
+    js_api_discovery = "js_api_discovery"
 
 
 class TaskStatus(str, Enum):

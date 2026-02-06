@@ -8,13 +8,11 @@ import logging
 from typing import Any, Dict, List
 from uuid import UUID
 
-from celery import shared_task
 from sqlalchemy.orm import Session
 
 from server.app.crud import dag_execution as crud_execution
 from server.app.crud import dag_template as crud_template
 from server.app.crud import event_trigger as crud_trigger
-from server.app.db.session import SessionLocal
 from worker.app.celery_app import celery_app
 from worker.app.tasks import dag_executor
 
@@ -23,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 def get_db() -> Session:
     """获取数据库会话"""
+    from server.app.db.session import SessionLocal
+
     return SessionLocal()
 
 
@@ -92,15 +92,13 @@ def get_matching_triggers(
     return matching
 
 
-@celery_app.task(bind=True, name="worker.app.tasks.event_handler.process_event")
-def process_event(
-    self,
+def _process_event_internal(
     project_id: str,
     event_type: str,
     event_data: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
-    处理事件 - 查找匹配的触发器并启动DAG
+    处理事件 - 查找匹配的触发器并启动DAG（纯函数，可被任务和普通函数复用）
 
     Args:
         project_id: 项目ID
@@ -207,6 +205,21 @@ def process_event(
         db.close()
 
 
+@celery_app.task(bind=True, name="worker.app.tasks.event_handler.process_event")
+def process_event(
+    self,
+    project_id: str,
+    event_type: str,
+    event_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Celery task wrapper for event processing."""
+    return _process_event_internal(
+        project_id=project_id,
+        event_type=event_type,
+        event_data=event_data,
+    )
+
+
 @celery_app.task(bind=True, name="worker.app.tasks.event_handler.emit_asset_event")
 def emit_asset_event(
     self,
@@ -235,7 +248,11 @@ def emit_asset_event(
         **(asset_data or {}),
     }
 
-    return process_event(project_id, event_type, event_data)
+    return _process_event_internal(
+        project_id=project_id,
+        event_type=event_type,
+        event_data=event_data,
+    )
 
 
 @celery_app.task(bind=True, name="worker.app.tasks.event_handler.emit_scan_event")
@@ -266,4 +283,8 @@ def emit_scan_event(
         **(result_summary or {}),
     }
 
-    return process_event(project_id, event_type, event_data)
+    return _process_event_internal(
+        project_id=project_id,
+        event_type=event_type,
+        event_data=event_data,
+    )

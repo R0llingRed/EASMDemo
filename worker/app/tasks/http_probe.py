@@ -3,7 +3,9 @@ import logging
 from typing import Any, Dict
 from uuid import UUID
 
+from shared.config import settings
 from worker.app.celery_app import celery_app
+from worker.app.utils.tls import create_ssl_context
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,7 @@ def _run_http_probe(db, task) -> Dict[str, Any]:
 
     config = task.config or {}
     batch_size = config.get("batch_size", 500)
+    verify_tls = settings.scan_verify_tls and not bool(config.get("insecure", False))
 
     ips = list_ip_addresses(db, task.project_id, limit=batch_size)
     probed_count = 0
@@ -59,7 +62,7 @@ def _run_http_probe(db, task) -> Dict[str, Any]:
             scheme = "https" if port.port in (443, 8443) else "http"
             url = f"{scheme}://{ip_obj.ip}:{port.port}"
 
-            result = _probe_url(url)
+            result = _probe_url(url, verify_tls=verify_tls)
             if result:
                 upsert_web_asset(
                     db=db,
@@ -76,26 +79,30 @@ def _run_http_probe(db, task) -> Dict[str, Any]:
     return {"urls_probed": probed_count, "alive": alive_count}
 
 
-def _probe_url(url: str) -> Dict[str, Any]:
+def _probe_url(url: str, verify_tls: bool = True) -> Dict[str, Any]:
     """Probe a single URL using httpx or requests."""
     import shutil
 
     # Try httpx CLI first
     if shutil.which("httpx"):
-        return _probe_with_httpx(url)
+        return _probe_with_httpx(url, verify_tls=verify_tls)
 
     # Fallback to Python requests
-    return _probe_with_requests(url)
+    return _probe_with_requests(url, verify_tls=verify_tls)
 
 
-def _probe_with_httpx(url: str) -> Dict[str, Any]:
+def _probe_with_httpx(url: str, verify_tls: bool = True) -> Dict[str, Any]:
     """Probe URL using httpx CLI."""
     import json
     import subprocess
 
     try:
+        command = ["httpx", "-u", url, "-json", "-silent", "-timeout", "10"]
+        if not verify_tls:
+            command.append("-insecure")
+
         result = subprocess.run(
-            ["httpx", "-u", url, "-json", "-silent", "-timeout", "10"],
+            command,
             capture_output=True,
             text=True,
             timeout=30,
@@ -117,16 +124,13 @@ def _probe_with_httpx(url: str) -> Dict[str, Any]:
     return {"is_alive": False}
 
 
-def _probe_with_requests(url: str) -> Dict[str, Any]:
+def _probe_with_requests(url: str, verify_tls: bool = True) -> Dict[str, Any]:
     """Probe URL using Python urllib."""
     import re
-    import ssl
     import urllib.request
 
     try:
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+        ctx = create_ssl_context(verify_tls=verify_tls)
 
         req = urllib.request.Request(url, headers={"User-Agent": "EASM-Scanner/1.0"})
         with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:

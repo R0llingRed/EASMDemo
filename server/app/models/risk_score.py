@@ -20,7 +20,7 @@ class RiskFactor(Base):
     __tablename__ = "risk_factors"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=True)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("project.id", ondelete="CASCADE"), nullable=True)
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
     weight = Column(Float, nullable=False, default=1.0)  # 权重 0.0-1.0
@@ -39,7 +39,7 @@ class AssetRiskScore(Base):
     __tablename__ = "asset_risk_scores"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("project.id", ondelete="CASCADE"), nullable=False)
     asset_type = Column(String(50), nullable=False)  # subdomain, ip_address, web_asset, etc.
     asset_id = Column(UUID(as_uuid=True), nullable=False)  # 关联资产ID
     

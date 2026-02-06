@@ -32,7 +32,7 @@ def upgrade() -> None:
         sa.Column('enabled', sa.Boolean(), nullable=False, server_default='true'),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
         sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
-        sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['project_id'], ['project.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_index('ix_risk_factors_project_id', 'risk_factors', ['project_id'])
@@ -53,7 +53,7 @@ def upgrade() -> None:
         sa.Column('expires_at', sa.DateTime(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
         sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
-        sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['project_id'], ['project.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_index('ix_asset_risk_scores_project_id', 'asset_risk_scores', ['project_id'])
@@ -75,7 +75,7 @@ def upgrade() -> None:
         sa.Column('last_test_success', sa.Boolean(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
         sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
-        sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['project_id'], ['project.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_index('ix_notification_channels_project_id', 'notification_channels', ['project_id'])
@@ -98,7 +98,7 @@ def upgrade() -> None:
         sa.Column('enabled', sa.Boolean(), nullable=False, server_default='true'),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
         sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
-        sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['project_id'], ['project.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_index('ix_alert_policies_project_id', 'alert_policies', ['project_id'])
@@ -125,7 +125,7 @@ def upgrade() -> None:
         sa.Column('aggregated_count', sa.Integer(), nullable=False, server_default='1'),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
         sa.Column('sent_at', sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['project_id'], ['project.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['policy_id'], ['alert_policies.id'], ondelete='SET NULL'),
         sa.PrimaryKeyConstraint('id')
     )

@@ -2,6 +2,8 @@ from celery import Celery
 
 from shared.config import settings
 
+settings.validate_runtime()
+
 celery_app = Celery(
     "easm",
     broker=settings.redis_url,
@@ -14,6 +16,7 @@ celery_app = Celery(
         "worker.app.tasks.screenshot",
         "worker.app.tasks.nuclei_scan",
         "worker.app.tasks.xray_scan",
+        "worker.app.tasks.js_api_discovery",
         "worker.app.tasks.dag_executor",
         "worker.app.tasks.event_handler",
         "worker.app.tasks.risk_calculator",
@@ -31,6 +34,7 @@ celery_app.conf.update(
         "worker.app.tasks.screenshot.run_screenshot": {"queue": "scan"},
         "worker.app.tasks.nuclei_scan.run_nuclei_scan": {"queue": "scan"},
         "worker.app.tasks.xray_scan.run_xray_scan": {"queue": "scan"},
+        "worker.app.tasks.js_api_discovery.run_js_api_discovery": {"queue": "scan"},
         "worker.app.tasks.dag_executor.execute_dag": {"queue": "orchestration"},
         "worker.app.tasks.dag_executor.on_node_completed": {"queue": "orchestration"},
         "worker.app.tasks.event_handler.process_event": {"queue": "orchestration"},
@@ -44,5 +48,3 @@ celery_app.conf.update(
         "worker.app.tasks.notifier.test_channel": {"queue": "alerting"},
     },
 )
-
-

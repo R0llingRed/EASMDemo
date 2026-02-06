@@ -20,7 +20,7 @@ class NotificationChannel(Base):
     __tablename__ = "notification_channels"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("project.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
     channel_type = Column(String(50), nullable=False)  # email, webhook, dingtalk, feishu, wechat
@@ -38,7 +38,7 @@ class AlertPolicy(Base):
     __tablename__ = "alert_policies"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("project.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     
@@ -66,7 +66,7 @@ class AlertRecord(Base):
     __tablename__ = "alert_records"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("project.id", ondelete="CASCADE"), nullable=False)
     policy_id = Column(UUID(as_uuid=True), ForeignKey("alert_policies.id", ondelete="SET NULL"), nullable=True)
     
     # 告警目标

@@ -4,8 +4,10 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID
 
+from shared.config import settings
 from worker.app.celery_app import celery_app
 from worker.app.fingerprint import FingerprintEngine, load_fingerprints
+from worker.app.utils.tls import create_ssl_context
 
 if TYPE_CHECKING:
     from server.app.models.web_asset import WebAsset
@@ -59,6 +61,7 @@ def _run_fingerprint(db, task) -> Dict[str, Any]:
     config = task.config or {}
     batch_size = config.get("batch_size", 500)
     use_engine = config.get("use_fingerprinthub", True)
+    verify_tls = settings.scan_verify_tls and not bool(config.get("insecure", False))
 
     assets = list_web_assets(db, task.project_id, is_alive=True, limit=batch_size)
     identified_count = 0
@@ -66,7 +69,7 @@ def _run_fingerprint(db, task) -> Dict[str, Any]:
     engine = get_engine() if use_engine else None
 
     for asset in assets:
-        fingerprints = _identify_fingerprints_for_asset(asset, engine)
+        fingerprints = _identify_fingerprints_for_asset(asset, engine, verify_tls=verify_tls)
         if fingerprints:
             upsert_web_asset(
                 db=db,
@@ -80,7 +83,9 @@ def _run_fingerprint(db, task) -> Dict[str, Any]:
 
 
 def _identify_fingerprints_for_asset(
-    asset: "WebAsset", engine: Optional[FingerprintEngine]
+    asset: "WebAsset",
+    engine: Optional[FingerprintEngine],
+    verify_tls: bool = True,
 ) -> List[str]:
     """Identify fingerprints for a single asset."""
     fingerprints = []
@@ -91,7 +96,7 @@ def _identify_fingerprints_for_asset(
     # Use FingerprintHub engine if available
     if engine:
         try:
-            body, headers, favicon_hash = _fetch_response(asset.url)
+            body, headers, favicon_hash = _fetch_response(asset.url, verify_tls=verify_tls)
             results = engine.match(body=body, headers=headers, favicon_hash=favicon_hash)
             for r in results:
                 if r.name and r.name not in fingerprints:
@@ -153,9 +158,8 @@ def _check_title_fingerprints(title: str, fingerprints: List[str]) -> None:
             fingerprints.append(name)
 
 
-def _fetch_response(url: str) -> tuple:
+def _fetch_response(url: str, verify_tls: bool = True) -> tuple:
     """Fetch URL and return body, headers, and favicon hash."""
-    import ssl
     import urllib.request
 
     body = ""
@@ -163,9 +167,7 @@ def _fetch_response(url: str) -> tuple:
     favicon_hash = None
 
     try:
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+        ctx = create_ssl_context(verify_tls=verify_tls)
 
         req = urllib.request.Request(
             url, headers={"User-Agent": "EASM-Scanner/1.0"}

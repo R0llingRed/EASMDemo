@@ -15,11 +15,11 @@ from sqlalchemy.orm import Session
 from server.app.crud import dag_execution as crud_execution
 from server.app.crud import dag_template as crud_template
 from server.app.crud import scan_task as crud_scan_task
-from server.app.db.session import SessionLocal
 from server.app.models.dag_execution import DAGExecution
 from worker.app.celery_app import celery_app
 from worker.app.tasks import fingerprint as fingerprint_tasks
 from worker.app.tasks import http_probe as http_probe_tasks
+from worker.app.tasks import js_api_discovery as js_api_discovery_tasks
 from worker.app.tasks import nuclei_scan as nuclei_tasks
 from worker.app.tasks import scan as scan_tasks
 from worker.app.tasks import screenshot as screenshot_tasks
@@ -37,11 +37,14 @@ TASK_DISPATCHERS = {
     "screenshot": screenshot_tasks.run_screenshot,
     "nuclei_scan": nuclei_tasks.run_nuclei_scan,
     "xray_scan": xray_tasks.run_xray_scan,
+    "js_api_discovery": js_api_discovery_tasks.run_js_api_discovery,
 }
 
 
 def get_db() -> Session:
     """获取数据库会话"""
+    from server.app.db.session import SessionLocal
+
     return SessionLocal()
 
 
