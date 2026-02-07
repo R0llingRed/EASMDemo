@@ -11,7 +11,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
-from server.app.db.session import Base
+from server.app.db.base import Base
 
 
 class NotificationChannel(Base):
