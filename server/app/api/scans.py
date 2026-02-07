@@ -155,6 +155,23 @@ def start_scan(
     if task.status != "pending":
         raise HTTPException(status_code=400, detail="Task is not in pending status")
 
-    _dispatch_scan_task(task)
+    started_task = crud_scan_task.start_scan_task(
+        db=db,
+        task_id=task.id,
+        project_id=project.id,
+    )
+    if not started_task:
+        raise HTTPException(status_code=409, detail="Task was already started")
 
-    return task
+    try:
+        _dispatch_scan_task(started_task)
+    except Exception as exc:
+        crud_scan_task.update_scan_task_status(
+            db=db,
+            task_id=started_task.id,
+            status="failed",
+            error_message=f"Task dispatch failed: {exc}",
+        )
+        raise HTTPException(status_code=500, detail=f"Task dispatch failed: {exc}") from exc
+
+    return started_task

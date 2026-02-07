@@ -148,6 +148,7 @@ def test_scan_create_start_then_query_api_risks_real_db(monkeypatch):
         scan_id = create_data["id"]
         start_resp = client.post(f"/projects/{project_id}/scans/{scan_id}/start")
         assert start_resp.status_code == 200
+        assert start_resp.json()["status"] == "running"
 
         risks_resp = client.get(f"/projects/{project_id}/api-risks")
         assert risks_resp.status_code == 200

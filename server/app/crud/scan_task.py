@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from server.app.models.scan_task import ScanTask
@@ -65,6 +65,31 @@ def count_scan_tasks(
     if status:
         stmt = stmt.where(ScanTask.status == status)
     return db.scalar(stmt) or 0
+
+
+def start_scan_task(
+    db: Session,
+    task_id: UUID,
+    project_id: UUID,
+) -> Optional[ScanTask]:
+    """
+    Atomically move a scan task from pending to running.
+    Returns the updated task when successful; otherwise None.
+    """
+    stmt = (
+        update(ScanTask)
+        .where(
+            ScanTask.id == task_id,
+            ScanTask.project_id == project_id,
+            ScanTask.status == "pending",
+        )
+        .values(status="running", started_at=datetime.utcnow())
+    )
+    result = db.execute(stmt)
+    db.commit()
+    if (result.rowcount or 0) < 1:
+        return None
+    return db.get(ScanTask, task_id)
 
 
 def update_scan_task_status(

@@ -2,7 +2,7 @@
 import { onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 
-import { createScan, listScans, startScan, type ScanTask } from '../api/easm'
+import { createScan, getScan, listScans, startScan, type ScanTask } from '../api/easm'
 import { getErrorMessage } from '../api/client'
 import { useWorkspaceStore } from '../stores/workspace'
 
@@ -14,6 +14,10 @@ const scans = ref<ScanTask[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
+const startingTaskId = ref('')
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const selectedTask = ref<ScanTask | null>(null)
 
 const query = reactive({
   taskType: '',
@@ -44,6 +48,14 @@ function parseConfigJson() {
     return {}
   }
   return JSON.parse(form.configJson) as Record<string, unknown>
+}
+
+function prettyJson(value: unknown): string {
+  try {
+    return JSON.stringify(value ?? {}, null, 2)
+  } catch {
+    return String(value ?? '')
+  }
 }
 
 async function refreshScans() {
@@ -95,8 +107,12 @@ async function submitCreate() {
     })
 
     if (form.autoStart) {
-      await startScan(projectId, created.id)
-      ElMessage.success('任务已创建并启动')
+      try {
+        await startScan(projectId, created.id)
+        ElMessage.success('任务已创建并启动')
+      } catch (error) {
+        ElMessage.error(`任务已创建，但启动失败：${getErrorMessage(error)}`)
+      }
     } else {
       ElMessage.success('任务已创建')
     }
@@ -115,12 +131,35 @@ async function triggerStart(taskId: string) {
   if (!projectId) {
     return
   }
+  startingTaskId.value = taskId
   try {
     await startScan(projectId, taskId)
     ElMessage.success('任务已启动')
-    await refreshScans()
   } catch (error) {
     ElMessage.error(`启动失败：${getErrorMessage(error)}`)
+  } finally {
+    startingTaskId.value = ''
+    await refreshScans()
+  }
+}
+
+async function openTaskDetails(task: ScanTask) {
+  const projectId = workspace.selectedProjectId
+  selectedTask.value = task
+  detailVisible.value = true
+
+  if (!projectId) {
+    return
+  }
+
+  detailLoading.value = true
+  try {
+    const latest = await getScan(projectId, task.id)
+    selectedTask.value = latest
+  } catch (error) {
+    ElMessage.error(`详情加载失败：${getErrorMessage(error)}`)
+  } finally {
+    detailLoading.value = false
   }
 }
 
@@ -227,17 +266,20 @@ watch(
         <el-table-column prop="priority" label="优先级" width="100" />
         <el-table-column prop="progress" label="进度" width="100" />
         <el-table-column prop="created_at" label="创建时间" min-width="180" />
-        <el-table-column label="操作" width="120">
+        <el-table-column label="操作" width="220">
           <template #default="{ row }">
-            <el-button
-              v-if="row.status === 'pending'"
-              type="primary"
-              size="small"
-              @click="triggerStart(row.id)"
-            >
-              启动
-            </el-button>
-            <span v-else>-</span>
+            <div class="flex items-center gap-2">
+              <el-button
+                v-if="row.status === 'pending'"
+                type="primary"
+                size="small"
+                :loading="startingTaskId === row.id"
+                @click="triggerStart(row.id)"
+              >
+                启动
+              </el-button>
+              <el-button size="small" @click="openTaskDetails(row)">详情/日志</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -253,5 +295,62 @@ watch(
         />
       </div>
     </el-card>
+
+    <el-drawer
+      v-model="detailVisible"
+      title="任务详情与日志"
+      size="56%"
+      :destroy-on-close="false"
+    >
+      <el-skeleton :loading="detailLoading" animated>
+        <template #template>
+          <el-skeleton-item variant="p" style="width: 100%; height: 24px; margin-bottom: 12px" />
+          <el-skeleton-item variant="text" style="width: 100%; height: 180px" />
+        </template>
+        <template #default>
+          <div v-if="selectedTask" class="space-y-4">
+            <el-descriptions :column="2" border>
+              <el-descriptions-item label="任务 ID">{{ selectedTask.id }}</el-descriptions-item>
+              <el-descriptions-item label="任务类型">{{ selectedTask.task_type }}</el-descriptions-item>
+              <el-descriptions-item label="状态">{{ selectedTask.status }}</el-descriptions-item>
+              <el-descriptions-item label="优先级">{{ selectedTask.priority }}</el-descriptions-item>
+              <el-descriptions-item label="进度">{{ selectedTask.progress }}%</el-descriptions-item>
+              <el-descriptions-item label="目标完成">
+                {{ selectedTask.completed_targets }}/{{ selectedTask.total_targets }}
+              </el-descriptions-item>
+              <el-descriptions-item label="创建时间">{{ selectedTask.created_at }}</el-descriptions-item>
+              <el-descriptions-item label="开始时间">{{ selectedTask.started_at || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="结束时间">{{ selectedTask.completed_at || '-' }}</el-descriptions-item>
+            </el-descriptions>
+
+            <el-alert
+              v-if="selectedTask.error_message"
+              type="error"
+              :closable="false"
+              :title="selectedTask.error_message"
+              show-icon
+            />
+            <el-alert
+              v-else
+              type="success"
+              :closable="false"
+              title="暂无错误日志"
+              show-icon
+            />
+
+            <el-card shadow="never">
+              <template #header><span>任务配置</span></template>
+              <pre class="rounded bg-slate-950 p-3 text-xs text-slate-100">{{ prettyJson(selectedTask.config) }}</pre>
+            </el-card>
+
+            <el-card shadow="never">
+              <template #header><span>执行摘要/日志</span></template>
+              <pre class="rounded bg-slate-950 p-3 text-xs text-slate-100">{{ prettyJson(selectedTask.result_summary) }}</pre>
+            </el-card>
+          </div>
+          <el-empty v-else description="暂无可展示任务" />
+        </template>
+      </el-skeleton>
+    </el-drawer>
   </div>
 </template>

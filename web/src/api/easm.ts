@@ -229,6 +229,11 @@ export async function startScan(projectId: string, taskId: string): Promise<Scan
   return data
 }
 
+export async function getScan(projectId: string, taskId: string): Promise<ScanTask> {
+  const { data } = await apiClient.get<ScanTask>(`/projects/${projectId}/scans/${taskId}`)
+  return data
+}
+
 export async function listVulnerabilities(projectId: string, params?: {
   severity?: string
   status?: string
