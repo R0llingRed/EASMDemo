@@ -6,3 +6,11 @@ __pycache__/
 .vscode/
 .DS_Store
 data/fingerprints/
+
+# Frontend
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
