@@ -1,7 +1,7 @@
 import json
 from urllib.parse import urlparse
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -18,9 +18,7 @@ class Settings(BaseSettings):
     cors_allow_headers: str = "*"
     cors_allow_credentials: bool = False
 
-    class Config:
-        env_file = ".env"
-        env_prefix = "EASM_"
+    model_config = SettingsConfigDict(env_file=".env", env_prefix="EASM_")
 
     def get_allowed_api_keys(self) -> set[str]:
         """Parse comma-separated API keys from settings."""

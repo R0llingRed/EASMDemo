@@ -35,6 +35,11 @@ curl http://localhost:8000/health
 - `EASM_API_KEYS`: comma-separated API keys for API access
 - `EASM_API_KEY_PROJECT_MAP`: optional JSON ACL map for project-level authorization
 - `EASM_SCAN_VERIFY_TLS`: verify TLS certificates for scanning (default: `true`)
+- `EASM_CORS_ENABLED`: enable CORS middleware (default: `true`)
+- `EASM_CORS_ALLOW_ORIGINS`: allowed origins (comma-separated, default: `*`)
+- `EASM_CORS_ALLOW_METHODS`: allowed methods (comma-separated)
+- `EASM_CORS_ALLOW_HEADERS`: allowed headers (comma-separated, default: `*`)
+- `EASM_CORS_ALLOW_CREDENTIALS`: allow credentials (default: `false`)
 
 ## Common commands
 

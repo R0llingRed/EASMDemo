@@ -8,7 +8,7 @@
 - `worker`：Celery Worker（消费 `default,scan` 队列）
 - `db`：PostgreSQL 15
 - `redis`：Redis 7（Broker/Backend）
-- `web`：Vue3 前端（当前为原型页面，可独立部署静态文件）
+- `web`：Vue3 前端（已接入后端 API，可独立部署静态文件）
 
 推荐使用 Docker Compose 进行一体化部署。
 
@@ -20,24 +20,17 @@
 
 ## 3. 环境变量配置
 
-项目当前没有提交 `.env.example`，请在仓库根目录手工创建 `.env`：
+建议从模板复制：
 
 ```bash
-cat > .env <<'EOF'
-EASM_APP_ENV=dev
-EASM_DATABASE_URL=postgresql+psycopg://easm:easm@db:5432/easm
-EASM_REDIS_URL=redis://redis:6379/0
-EASM_AUTH_ENABLED=true
-EASM_API_KEYS=dev-change-me
-EASM_API_KEY_PROJECT_MAP=
-EASM_SCAN_VERIFY_TLS=true
-EOF
+cp .env.example .env
 ```
 
 说明：
 
 - `EASM_API_KEYS` 为 API 访问密钥，多个用英文逗号分隔。
 - `EASM_REDIS_URL` 在 docker 网络内必须使用 `redis:6379`。
+- 跨域场景可通过 `.env` 配置 CORS（`EASM_CORS_*`）。
 
 ## 4. Docker Compose 部署（推荐）
 
@@ -92,7 +85,10 @@ npm run build
 - `/` -> `web/dist`
 - `/api` 或 `/` 下 API 路由 -> 反向代理到 `api:8000`
 
-如果前后端跨域部署，需要在后端增加 CORS 中间件。
+后端已内置 CORS 中间件，跨域部署时请按需设置 `.env`：
+
+- `EASM_CORS_ALLOW_ORIGINS`（例如：`http://localhost:5173,https://your-web.example.com`）
+- `EASM_CORS_ALLOW_CREDENTIALS`
 
 ## 6. 本地非 Docker 部署（可选）
 
@@ -140,4 +136,3 @@ celery -A worker.app.celery_app:celery_app worker -Q default,scan,orchestration,
 
 4. 前端请求失败（浏览器跨域）
 - 当前后端跨域时，后端需增加 CORS 配置或通过网关同域转发。
-

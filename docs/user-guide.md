@@ -169,7 +169,9 @@ curl -s -X POST "$API/projects/<project_id>/risk/scores/calculate" \
 
 ## 5. 前端页面说明（当前版本）
 
-当前页面包含：
+当前页面已接入后端 API，并默认通过 `X-API-Key` 访问（可在 `Settings` 页面配置 Base URL 与 API Key）。
+
+包含页面：
 
 - Dashboard
 - Projects
@@ -178,7 +180,13 @@ curl -s -X POST "$API/projects/<project_id>/risk/scores/calculate" \
 - Tasks
 - Settings
 
-现阶段主要用于导航和布局展示，业务数据尚未对接后端 API。
+说明：
+
+- `Projects`：创建项目、切换当前项目
+- `Assets`：按项目批量导入资产并分页查询
+- `Tasks`：创建/启动扫描任务并筛选状态
+- `Risks`：查看漏洞、API 风险、风险评分三类数据
+- `Dashboard`：展示资产/风险/任务聚合统计与最近任务
 
 ## 6. 常见返回码
 
@@ -189,4 +197,3 @@ curl -s -X POST "$API/projects/<project_id>/risk/scores/calculate" \
 - `404`：资源不存在
 - `422`：请求体校验失败
 - `503`：数据库未初始化或不可用
-
