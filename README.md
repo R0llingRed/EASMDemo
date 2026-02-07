@@ -26,6 +26,12 @@ docker compose exec api python -m alembic -c server/alembic.ini upgrade head
 curl http://localhost:8000/health
 ```
 
+5. Open frontend
+
+```text
+http://localhost:5173
+```
+
 ## Environment variables
 
 - `EASM_APP_ENV`: environment name (default: dev)
@@ -40,6 +46,8 @@ curl http://localhost:8000/health
 - `EASM_CORS_ALLOW_METHODS`: allowed methods (comma-separated)
 - `EASM_CORS_ALLOW_HEADERS`: allowed headers (comma-separated, default: `*`)
 - `EASM_CORS_ALLOW_CREDENTIALS`: allow credentials (default: `false`)
+- `VITE_API_BASE_URL`: frontend API base URL baked at image build time (default: `http://localhost:8000`)
+- `VITE_API_KEY`: optional default API key baked at image build time
 
 ## Common commands
 
