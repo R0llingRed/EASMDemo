@@ -13,11 +13,15 @@ def create_scan_task(
     project_id: UUID,
     task_type: str,
     config: Dict[str, Any],
+    priority: int = 5,
+    scan_policy_id: Optional[UUID] = None,
     total_targets: int = 0,
 ) -> ScanTask:
     task = ScanTask(
         project_id=project_id,
+        scan_policy_id=scan_policy_id,
         task_type=task_type,
+        priority=priority,
         config=config,
         total_targets=total_targets,
         status="pending",

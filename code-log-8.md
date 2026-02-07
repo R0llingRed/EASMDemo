@@ -78,3 +78,23 @@
 - API 风险闭环能力：
   - 状态流转：`open` -> `investigating` -> `resolved` / `false_positive` / `accepted_risk`
   - 审计字段：`updated_by`、`resolution_notes`、`status_history`
+
+---
+
+## 6. 加固迭代（2026-02-06）
+
+- 迁移链路修复：
+  - `0008_risk_and_alerts` 的 `down_revision` 更正为 `0007_dag_orchestration`
+  - 新增迁移 `0012_scan_task_policy_link`，为 `scan_task` 增加 `scan_policy_id`
+- 执行链路打通：
+  - `create_scan` 支持策略选择与默认策略合并（`policy_id` + `scan_config` merge）
+  - 扫描任务优先级贯通到 Celery `apply_async(priority=...)`
+  - 扫描任务开始前接入项目级速率限制等待
+  - 扫描完成/失败后自动回调 `on_node_completed`，打通 DAG 节点闭环
+- CI 增强：
+  - 新增 `test` Job，执行 `alembic upgrade head` + `pytest -q`
+  - 保留原有 `lint`（ruff + black）
+- 新增测试：
+  - `test_scan_helpers_rate_limit.py`
+  - `test_dag_callback.py`
+  - `test_scan_api_integration.py`（依赖 FastAPI/psycopg，缺失时自动 skip）

@@ -26,6 +26,11 @@ celery_app = Celery(
 )
 
 celery_app.conf.update(
+    task_queue_max_priority=10,
+    task_default_priority=5,
+    broker_transport_options={
+        "queue_order_strategy": "priority",
+    },
     task_routes={
         "worker.app.tasks.example.ping": {"queue": "default"},
         "worker.app.tasks.scan.run_scan": {"queue": "scan"},

@@ -2,6 +2,7 @@
 from typing import Any, Dict, Optional
 from uuid import UUID
 
+from server.app.crud.project import get_project
 from server.app.utils.rate_limiter import get_rate_limiter
 
 
@@ -39,3 +40,30 @@ def wait_for_rate_limit(
         window_seconds=1,
         max_wait=max_wait,
     )
+
+
+def get_effective_rate_limit_config(
+    db,
+    project_id: UUID,
+    task_config: Optional[Dict[str, Any]] = None,
+) -> Dict[str, int]:
+    """Merge project and task-level rate limit configs."""
+    project = get_project(db, project_id)
+    project_config = dict(getattr(project, "rate_limit_config", {}) or {})
+    task_override = dict((task_config or {}).get("rate_limit_config", {}) or {})
+    return get_rate_limit_config({**project_config, **task_override})
+
+
+def wait_for_project_rate_limit(
+    db,
+    project_id: UUID,
+    task_config: Optional[Dict[str, Any]] = None,
+    max_wait: float = 10.0,
+) -> bool:
+    """Wait for effective project rate limit before running scan."""
+    merged_config = get_effective_rate_limit_config(
+        db=db,
+        project_id=project_id,
+        task_config=task_config,
+    )
+    return wait_for_rate_limit(project_id=project_id, config=merged_config, max_wait=max_wait)

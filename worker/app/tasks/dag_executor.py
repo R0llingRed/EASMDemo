@@ -41,6 +41,12 @@ TASK_DISPATCHERS = {
 }
 
 
+def _to_celery_priority(priority: int) -> int:
+    """Convert priority range (1-10) to Celery range (0-9)."""
+    normalized = max(1, min(10, int(priority or 5)))
+    return normalized - 1
+
+
 def get_db() -> Session:
     """获取数据库会话"""
     from server.app.db.session import SessionLocal
@@ -159,12 +165,15 @@ def dispatch_scan_task(
     Returns:
         scan_task_id
     """
+    priority = int(config.get("priority", 5)) if isinstance(config, dict) else 5
+
     # 创建 scan_task
     task = crud_scan_task.create_scan_task(
         db=db,
         project_id=project_id,
         task_type=task_type,
         config=config,
+        priority=priority,
     )
 
     # 使用映射分发到对应的 Celery 任务
@@ -172,7 +181,7 @@ def dispatch_scan_task(
     dispatcher = TASK_DISPATCHERS.get(task_type)
     
     if dispatcher:
-        dispatcher.delay(task_id)
+        dispatcher.apply_async(args=[task_id], priority=_to_celery_priority(priority))
         return task.id
     else:
         logger.warning(f"Unknown task type: {task_type}")

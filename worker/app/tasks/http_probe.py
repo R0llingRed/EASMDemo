@@ -5,6 +5,8 @@ from uuid import UUID
 
 from shared.config import settings
 from worker.app.celery_app import celery_app
+from worker.app.tasks.dag_callback import notify_dag_node_completion
+from worker.app.utils.scan_helpers import wait_for_project_rate_limit
 from worker.app.utils.tls import create_ssl_context
 
 logger = logging.getLogger(__name__)
@@ -24,15 +26,24 @@ def run_http_probe(self, task_id: str):
             return
 
         crud_scan_task.update_scan_task_status(db, task.id, "running")
+        if not wait_for_project_rate_limit(
+            db=db,
+            project_id=task.project_id,
+            task_config=task.config,
+        ):
+            raise RuntimeError("Rate limit wait timeout for project scan execution")
         result = _run_http_probe(db, task)
         crud_scan_task.update_scan_task_status(
             db, task.id, "completed", result_summary=result
         )
+        notify_dag_node_completion(db=db, scan_task_id=task.id, success=True)
     except Exception as e:
         logger.exception(f"Task {task_id} failed")
+        task_uuid = UUID(task_id)
         crud_scan_task.update_scan_task_status(
-            db, UUID(task_id), "failed", error_message=str(e)
+            db, task_uuid, "failed", error_message=str(e)
         )
+        notify_dag_node_completion(db=db, scan_task_id=task_uuid, success=False)
     finally:
         db.close()
 

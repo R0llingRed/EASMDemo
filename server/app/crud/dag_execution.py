@@ -113,7 +113,9 @@ def update_node_state(
     locked_execution.node_states = node_states
 
     if task_id:
-        node_task_ids = dict(locked_execution.node_task_ids) if locked_execution.node_task_ids else {}
+        node_task_ids = (
+            dict(locked_execution.node_task_ids) if locked_execution.node_task_ids else {}
+        )
         node_task_ids[node_id] = str(task_id)
         locked_execution.node_task_ids = node_task_ids
 
@@ -128,3 +130,22 @@ def get_running_executions(db: Session, project_id: Optional[UUID] = None) -> Li
     if project_id:
         query = query.filter(DAGExecution.project_id == project_id)
     return query.all()
+
+
+def get_execution_node_by_task_id(
+    db: Session,
+    scan_task_id: UUID,
+) -> Optional[tuple[DAGExecution, str]]:
+    """
+    Find DAG execution/node pair by scan_task_id from node_task_ids mapping.
+    """
+    task_id_str = str(scan_task_id)
+    candidates = db.query(DAGExecution).filter(
+        DAGExecution.status.in_(["running", "pending"])
+    ).all()
+    for execution in candidates:
+        node_task_ids = dict(execution.node_task_ids or {})
+        for node_id, mapped_task_id in node_task_ids.items():
+            if str(mapped_task_id) == task_id_str:
+                return execution, node_id
+    return None

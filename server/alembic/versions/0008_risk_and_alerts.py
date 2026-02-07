@@ -1,7 +1,7 @@
 """0008_risk_and_alerts
 
 Revision ID: 0008
-Revises: 0007
+Revises: 0007_dag_orchestration
 Create Date: 2026-02-05
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = '0008'
-down_revision = '0007'
+down_revision = '0007_dag_orchestration'
 branch_labels = None
 depends_on = None
 
@@ -134,7 +134,11 @@ def upgrade() -> None:
     op.create_index('ix_alert_records_status', 'alert_records', ['status'])
     op.create_index('ix_alert_records_severity', 'alert_records', ['severity'])
     op.create_index('ix_alert_records_created_at', 'alert_records', ['created_at'])
-    op.create_index('ix_alert_records_aggregation', 'alert_records', ['aggregation_key', 'created_at'])
+    op.create_index(
+        'ix_alert_records_aggregation',
+        'alert_records',
+        ['aggregation_key', 'created_at'],
+    )
 
 
 def downgrade() -> None:

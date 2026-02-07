@@ -27,6 +27,7 @@ class TaskStatus(str, Enum):
 
 class ScanTaskCreate(BaseModel):
     task_type: TaskType
+    policy_id: Optional[UUID] = None
     config: Dict[str, Any] = Field(default_factory=dict)
     priority: int = Field(default=5, ge=1, le=10)
 
@@ -34,6 +35,7 @@ class ScanTaskCreate(BaseModel):
 class ScanTaskOut(BaseModel):
     id: UUID
     project_id: UUID
+    scan_policy_id: Optional[UUID] = None
     task_type: str
     status: str
     priority: int

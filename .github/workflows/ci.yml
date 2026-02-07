@@ -21,3 +21,38 @@ jobs:
         run: ruff check .
       - name: Black
         run: black --check .
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: easm
+          POSTGRES_USER: easm
+          POSTGRES_PASSWORD: easm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U easm -d easm"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      EASM_DATABASE_URL: postgresql+psycopg://easm:easm@localhost:5432/easm
+      EASM_REDIS_URL: redis://localhost:6379/0
+      EASM_API_KEYS: ci-test-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      - name: Alembic Upgrade Head
+        run: alembic -c server/alembic.ini upgrade head
+      - name: Pytest
+        run: pytest -q

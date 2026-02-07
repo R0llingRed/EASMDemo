@@ -8,11 +8,13 @@ from uuid import UUID
 
 from shared.config import settings
 from worker.app.celery_app import celery_app
+from worker.app.tasks.dag_callback import notify_dag_node_completion
 from worker.app.utils.js_api_parser import (
     classify_endpoint_risks,
     extract_endpoints_from_js,
     extract_scripts_from_html,
 )
+from worker.app.utils.scan_helpers import wait_for_project_rate_limit
 from worker.app.utils.tls import create_ssl_context
 
 logger = logging.getLogger(__name__)
@@ -32,15 +34,24 @@ def run_js_api_discovery(self, task_id: str):
             return
 
         crud_scan_task.update_scan_task_status(db, task.id, "running")
+        if not wait_for_project_rate_limit(
+            db=db,
+            project_id=task.project_id,
+            task_config=task.config,
+        ):
+            raise RuntimeError("Rate limit wait timeout for project scan execution")
         result = _run_js_api_discovery(db, task)
         crud_scan_task.update_scan_task_status(
             db, task.id, "completed", result_summary=result
         )
+        notify_dag_node_completion(db=db, scan_task_id=task.id, success=True)
     except Exception as exc:
         logger.exception(f"Task {task_id} failed")
+        task_uuid = UUID(task_id)
         crud_scan_task.update_scan_task_status(
-            db, UUID(task_id), "failed", error_message=str(exc)
+            db, task_uuid, "failed", error_message=str(exc)
         )
+        notify_dag_node_completion(db=db, scan_task_id=task_uuid, success=False)
     finally:
         db.close()
 
