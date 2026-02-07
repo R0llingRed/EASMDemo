@@ -62,12 +62,8 @@ function extractDetailMessage(detail: unknown): string | null {
 }
 
 export function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message
-  }
-
   const axiosError = error as AxiosError<{ detail?: unknown; message?: string }>
-  if (axiosError?.response?.data) {
+  if (axios.isAxiosError(error) && axiosError.response?.data) {
     const { detail, message } = axiosError.response.data
     const detailMessage = extractDetailMessage(detail)
     if (detailMessage) {
@@ -80,6 +76,10 @@ export function getErrorMessage(error: unknown): string {
 
   if (typeof axiosError?.message === 'string' && axiosError.message.trim()) {
     return axiosError.message
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message
   }
 
   return '请求失败，请稍后重试'

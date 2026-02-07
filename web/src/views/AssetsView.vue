@@ -121,10 +121,13 @@ watch(
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Assets</h1>
-      <el-tag v-if="workspace.selectedProject">{{ workspace.selectedProject.name }}</el-tag>
+  <div class="page-shell">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Assets</h1>
+        <p class="page-subtitle">批量导入资产并按类型检索</p>
+      </div>
+      <el-tag v-if="workspace.selectedProject" effect="dark">{{ workspace.selectedProject.name }}</el-tag>
       <el-tag type="warning" v-else>未选择项目</el-tag>
     </div>
 
@@ -135,7 +138,7 @@ watch(
       :closable="false"
     />
 
-    <el-card shadow="never">
+    <el-card shadow="never" class="panel-card">
       <template #header>
         <span>批量导入资产（每行一条）</span>
       </template>
@@ -165,7 +168,7 @@ watch(
       </el-form>
     </el-card>
 
-    <el-card shadow="never">
+    <el-card shadow="never" class="panel-card">
       <template #header>
         <div class="flex items-center justify-between">
           <span>资产列表（{{ total }}）</span>

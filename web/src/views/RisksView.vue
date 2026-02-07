@@ -229,40 +229,37 @@ watch(
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Risks</h1>
-      <el-button @click="loadAll" :loading="loading">刷新</el-button>
+  <div class="page-shell">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Risks</h1>
+        <p class="page-subtitle">聚合漏洞、API 风险和资产风险分值</p>
+      </div>
+      <div class="page-tools">
+        <el-button @click="loadAll" :loading="loading">刷新</el-button>
+      </div>
     </div>
 
-    <el-row :gutter="16" v-loading="loading">
-      <el-col :span="6">
-        <el-card>
-          <div class="text-sm text-gray-500 mb-1">漏洞总数</div>
-          <div class="text-3xl font-bold">{{ vulnerabilityStats.total }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card>
-          <div class="text-sm text-gray-500 mb-1">严重漏洞</div>
-          <div class="text-3xl font-bold text-red-600">{{ vulnerabilityStats.critical }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card>
-          <div class="text-sm text-gray-500 mb-1">高危漏洞</div>
-          <div class="text-3xl font-bold text-orange-600">{{ vulnerabilityStats.high }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card>
-          <div class="text-sm text-gray-500 mb-1">API 风险</div>
-          <div class="text-3xl font-bold text-purple-600">{{ apiRiskTotal }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <div class="kpi-grid" v-loading="loading">
+      <article class="kpi-card text-[#2f6f7e]">
+        <div class="kpi-label">漏洞总数</div>
+        <div class="kpi-value kpi-value--neutral">{{ vulnerabilityStats.total }}</div>
+      </article>
+      <article class="kpi-card text-[var(--danger)]">
+        <div class="kpi-label">严重漏洞</div>
+        <div class="kpi-value kpi-value--danger">{{ vulnerabilityStats.critical }}</div>
+      </article>
+      <article class="kpi-card text-[var(--accent)]">
+        <div class="kpi-label">高危漏洞</div>
+        <div class="kpi-value kpi-value--accent">{{ vulnerabilityStats.high }}</div>
+      </article>
+      <article class="kpi-card text-[var(--brand)]">
+        <div class="kpi-label">API 风险</div>
+        <div class="kpi-value kpi-value--brand">{{ apiRiskTotal }}</div>
+      </article>
+    </div>
 
-    <el-card shadow="never">
+    <el-card shadow="never" class="panel-card">
       <template #header>
         <div class="flex items-center justify-between">
           <span>漏洞列表</span>
@@ -316,7 +313,7 @@ watch(
       </div>
     </el-card>
 
-    <el-card shadow="never">
+    <el-card shadow="never" class="panel-card">
       <template #header>
         <div class="flex items-center justify-between">
           <span>API 风险列表</span>
@@ -371,7 +368,7 @@ watch(
       </div>
     </el-card>
 
-    <el-card shadow="never">
+    <el-card shadow="never" class="panel-card">
       <template #header>
         <div class="flex items-center justify-between">
           <span>风险评分</span>

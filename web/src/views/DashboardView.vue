@@ -77,41 +77,36 @@ watch(
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Dashboard</h1>
-      <el-tag v-if="workspace.selectedProject">{{ workspace.selectedProject.name }}</el-tag>
+  <div class="page-shell">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">核心指标与最近任务状态</p>
+      </div>
+      <el-tag v-if="workspace.selectedProject" effect="dark">{{ workspace.selectedProject.name }}</el-tag>
       <el-tag type="warning" v-else>请先创建并选择项目</el-tag>
     </div>
 
-    <el-row :gutter="16" v-loading="loading">
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <div class="text-sm text-gray-500 mb-2">资产总数</div>
-          <div class="text-3xl font-bold text-blue-600">{{ stats.totalAssets }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <div class="text-sm text-gray-500 mb-2">严重风险</div>
-          <div class="text-3xl font-bold text-red-600">{{ stats.criticalRisks }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <div class="text-sm text-gray-500 mb-2">运行中/待执行任务</div>
-          <div class="text-3xl font-bold text-green-600">{{ stats.runningTasks }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <div class="text-sm text-gray-500 mb-2">漏洞总数</div>
-          <div class="text-3xl font-bold text-amber-600">{{ stats.vulnerabilities }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <div class="kpi-grid" v-loading="loading">
+      <article class="kpi-card text-[var(--brand)]">
+        <div class="kpi-label">资产总数</div>
+        <div class="kpi-value kpi-value--brand">{{ stats.totalAssets }}</div>
+      </article>
+      <article class="kpi-card text-[var(--danger)]">
+        <div class="kpi-label">严重风险</div>
+        <div class="kpi-value kpi-value--danger">{{ stats.criticalRisks }}</div>
+      </article>
+      <article class="kpi-card text-[#2f6f7e]">
+        <div class="kpi-label">运行中/待执行任务</div>
+        <div class="kpi-value kpi-value--neutral">{{ stats.runningTasks }}</div>
+      </article>
+      <article class="kpi-card text-[var(--accent)]">
+        <div class="kpi-label">漏洞总数</div>
+        <div class="kpi-value kpi-value--accent">{{ stats.vulnerabilities }}</div>
+      </article>
+    </div>
 
-    <el-card shadow="never">
+    <el-card shadow="never" class="panel-card">
       <template #header>
         <span>最近扫描任务</span>
       </template>

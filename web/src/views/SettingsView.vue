@@ -45,10 +45,15 @@ async function testConnection() {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <h1 class="text-2xl font-bold">Settings</h1>
+  <div class="page-shell">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Settings</h1>
+        <p class="page-subtitle">管理 API 地址、密钥和连通性测试</p>
+      </div>
+    </div>
 
-    <el-card shadow="never">
+    <el-card shadow="never" class="panel-card">
       <template #header><span>API 连接配置</span></template>
       <el-form label-width="120px" style="max-width: 720px">
         <el-form-item label="API Base URL">

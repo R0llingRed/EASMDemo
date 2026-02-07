@@ -146,7 +146,23 @@ def _process_event_internal(
 
                 # 安全合并配置：触发器配置优先于事件数据，防止恶意覆盖
                 # 事件数据只允许白名单字段
-                safe_event_keys = {"asset_id", "asset_type", "scan_task_id", "task_type", "severity", "target", "source"}
+                safe_event_keys = {
+                    "asset_id",
+                    "asset_type",
+                    "scan_task_id",
+                    "task_type",
+                    "severity",
+                    "target",
+                    "source",
+                    "domain",
+                    "domains",
+                    "ips",
+                    "urls",
+                    "inserted",
+                    "skipped",
+                    "total",
+                    "asset_types",
+                }
                 filtered_event_data = {k: v for k, v in event_data.items() if k in safe_event_keys}
                 input_config = {**filtered_event_data, **trigger.dag_config}
 

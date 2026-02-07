@@ -24,6 +24,7 @@ import {
   ElMenuItem,
   ElOption,
   ElPagination,
+  ElProgress,
   ElRow,
   ElSelect,
   ElTable,
@@ -62,6 +63,7 @@ app.component(ElMenu.name!, ElMenu)
 app.component(ElMenuItem.name!, ElMenuItem)
 app.component(ElOption.name!, ElOption)
 app.component(ElPagination.name!, ElPagination)
+app.component(ElProgress.name!, ElProgress)
 app.component(ElRow.name!, ElRow)
 app.component(ElSelect.name!, ElSelect)
 app.component(ElTable.name!, ElTable)

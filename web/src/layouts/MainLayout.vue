@@ -1,125 +1,160 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import {
+  ArrowLeftBold,
+  ArrowRightBold,
+  Connection,
+  DataAnalysis,
   Monitor,
   Setting,
-  User,
   Odometer,
   Files,
   WarnTriangleFilled,
   Aim
 } from '@element-plus/icons-vue'
+import { useWorkspaceStore } from '../stores/workspace'
 
 const route = useRoute()
-const isCollapse = ref(false)
-const asideWidth = computed(() => (isCollapse.value ? '64px' : '240px'))
+const workspace = useWorkspaceStore()
 
-const handleOpen = (_key: string, _keyPath: string[]) => {}
-const handleClose = (_key: string, _keyPath: string[]) => {}
+const isMobile = ref(false)
+const sidebarOpen = ref(true)
+
+type MenuItem = {
+  path: string
+  label: string
+  icon: unknown
+  subtitle: string
+}
+
+const menuItems: MenuItem[] = [
+  { path: '/', label: 'Dashboard', icon: Odometer, subtitle: '资产和任务总览' },
+  { path: '/projects', label: 'Projects', icon: Files, subtitle: '项目空间与切换' },
+  { path: '/assets', label: 'Assets', icon: Monitor, subtitle: '资产导入与检索' },
+  { path: '/risks', label: 'Risks', icon: WarnTriangleFilled, subtitle: '漏洞、API 风险与评分' },
+  { path: '/tasks', label: 'Tasks', icon: Aim, subtitle: '扫描任务编排与执行' },
+  { path: '/task-progress', label: 'Progress', icon: DataAnalysis, subtitle: '实时任务进度监控' },
+  { path: '/automation', label: 'Automation', icon: Connection, subtitle: '资产导入自动化策略' },
+  { path: '/settings', label: 'Settings', icon: Setting, subtitle: '连接参数与访问控制' },
+]
+
+const defaultMeta: MenuItem = menuItems[0] ?? {
+  path: '/',
+  label: 'Dashboard',
+  icon: Odometer,
+  subtitle: '资产和任务总览',
+}
+
+const routeMeta = computed(() =>
+  menuItems.find((item) => item.path === route.path) ?? defaultMeta,
+)
+
+const asideWidth = computed(() => {
+  if (isMobile.value) {
+    return '280px'
+  }
+  return sidebarOpen.value ? '270px' : '92px'
+})
+
+const menuCollapse = computed(() => !isMobile.value && !sidebarOpen.value)
+
+function syncViewport() {
+  isMobile.value = window.innerWidth <= 1024
+  if (isMobile.value) {
+    sidebarOpen.value = false
+  }
+}
+
+function toggleSidebar() {
+  sidebarOpen.value = !sidebarOpen.value
+}
+
+function onMenuClick() {
+  if (isMobile.value) {
+    sidebarOpen.value = false
+  }
+}
+
+onMounted(() => {
+  syncViewport()
+  window.addEventListener('resize', syncViewport)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncViewport)
+})
 </script>
 
 <template>
-  <el-container class="h-screen w-full">
-    <el-aside :width="asideWidth" class="bg-gray-900 text-white transition-all duration-300">
-      <div class="h-16 flex items-center justify-center border-b border-gray-800">
-        <span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400" v-if="!isCollapse">
-          EASM Platform
-        </span>
-        <span v-else class="text-xl font-bold text-blue-400">E</span>
+  <div class="app-shell">
+    <div
+      v-if="isMobile && sidebarOpen"
+      class="app-sidebar-backdrop"
+      @click="sidebarOpen = false"
+    />
+    <el-aside
+      :width="asideWidth"
+      class="app-sidebar transition-all duration-300"
+      :class="{
+        'app-sidebar--mobile': isMobile,
+        'app-sidebar--mobile-open': isMobile && sidebarOpen,
+        'app-sidebar--mobile-closed': isMobile && !sidebarOpen,
+      }"
+    >
+      <div class="app-brand">
+        <div class="app-brand-badge">E</div>
+        <div v-if="!menuCollapse" class="app-brand-text">
+          <p class="app-brand-title">EASM Console</p>
+          <p class="app-brand-subtitle">Exposure Operations</p>
+        </div>
       </div>
 
       <el-menu
-        active-text-color="#409EFF"
-        background-color="#111827"
-        class="el-menu-vertical-demo border-r-0"
+        class="app-menu"
         :default-active="route.path"
-        text-color="#fff"
-        :collapse="isCollapse"
-        @open="handleOpen"
-        @close="handleClose"
+        :collapse="menuCollapse"
         router
       >
-        <el-menu-item index="/">
-          <el-icon><Odometer /></el-icon>
-          <template #title>Dashboard</template>
-        </el-menu-item>
-        
-        <el-menu-item index="/projects">
-          <el-icon><Files /></el-icon>
-          <template #title>Projects</template>
-        </el-menu-item>
-
-        <el-menu-item index="/assets">
-          <el-icon><Monitor /></el-icon>
-          <template #title>Assets</template>
-        </el-menu-item>
-
-        <el-menu-item index="/risks">
-          <el-icon><WarnTriangleFilled /></el-icon>
-          <template #title>Risks</template>
-        </el-menu-item>
-        
-        <el-menu-item index="/tasks">
-          <el-icon><Aim /></el-icon>
-          <template #title>Tasks</template>
-        </el-menu-item>
-
-        <el-menu-item index="/settings">
-          <el-icon><Setting /></el-icon>
-          <template #title>Settings</template>
+        <el-menu-item
+          v-for="item in menuItems"
+          :key="item.path"
+          :index="item.path"
+          @click="onMenuClick"
+        >
+          <el-icon><component :is="item.icon" /></el-icon>
+          <template #title>{{ item.label }}</template>
         </el-menu-item>
       </el-menu>
     </el-aside>
 
-    <el-container>
-      <el-header class="bg-white border-b border-gray-200 flex items-center justify-between px-6 h-16">
-        <div class="flex items-center">
-          <button @click="isCollapse = !isCollapse" class="p-2 rounded hover:bg-gray-100 mr-4">
-             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-             </svg>
-          </button>
-          <h2 class="text-lg font-semibold text-gray-800">
-             {{ route.name ? String(route.name).charAt(0).toUpperCase() + String(route.name).slice(1) : 'Dashboard' }}
-          </h2>
-        </div>
-        
-        <div class="flex items-center space-x-4">
-          <el-dropdown>
-            <span class="el-dropdown-link flex items-center cursor-pointer">
-              <el-avatar :size="32" :icon="User" class="mr-2" />
-              <span class="text-gray-700 font-medium">Admin User</span>
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item>Profile</el-dropdown-item>
-                <el-dropdown-item>Logout</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </el-header>
+    <div class="app-main">
+      <header class="app-topbar">
+        <button class="icon-button" @click="toggleSidebar">
+          <el-icon v-if="sidebarOpen"><ArrowLeftBold /></el-icon>
+          <el-icon v-else><ArrowRightBold /></el-icon>
+        </button>
 
-      <el-main class="bg-gray-50 p-6">
+        <div>
+          <h1 class="topbar-title">{{ routeMeta.label }}</h1>
+          <p class="topbar-subtitle">{{ routeMeta.subtitle }}</p>
+        </div>
+
+        <div class="topbar-status">
+          <el-tag v-if="workspace.selectedProject" effect="dark" round>
+            {{ workspace.selectedProject.name }}
+          </el-tag>
+          <el-tag v-else type="warning" round>未选择项目</el-tag>
+        </div>
+      </header>
+
+      <main class="app-content">
         <RouterView v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
+          <transition name="view-fade" mode="out-in">
             <component :is="Component" />
           </transition>
         </RouterView>
-      </el-main>
-    </el-container>
-  </el-container>
+      </main>
+    </div>
+  </div>
 </template>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

@@ -18,19 +18,19 @@ def upgrade() -> None:
     # Add fingerprint_hash to subdomain
     op.add_column(
         "subdomain",
-        sa.Column("fingerprint_hash", sa.String(32), nullable=True, index=True),
+        sa.Column("fingerprint_hash", sa.String(32), nullable=True),
     )
 
     # Add fingerprint_hash to ip_address
     op.add_column(
         "ip_address",
-        sa.Column("fingerprint_hash", sa.String(32), nullable=True, index=True),
+        sa.Column("fingerprint_hash", sa.String(32), nullable=True),
     )
 
     # Add fingerprint_hash to web_asset
     op.add_column(
         "web_asset",
-        sa.Column("fingerprint_hash", sa.String(32), nullable=True, index=True),
+        sa.Column("fingerprint_hash", sa.String(32), nullable=True),
     )
 
     # Add rate_limit_config to project

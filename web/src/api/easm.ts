@@ -118,6 +118,45 @@ export interface AlertRecord {
   created_at: string
 }
 
+export interface DAGNodeInput {
+  id: string
+  task_type: string
+  depends_on: string[]
+  config: Record<string, unknown>
+}
+
+export interface DAGTemplate {
+  id: string
+  project_id: string | null
+  name: string
+  description: string | null
+  nodes: Array<Record<string, unknown>>
+  edges: Array<Record<string, string>>
+  is_system: boolean
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface EventTrigger {
+  id: string
+  project_id: string
+  name: string
+  description: string | null
+  event_type: string
+  filter_config: Record<string, unknown>
+  dag_template_id: string
+  dag_config: Record<string, unknown>
+  enabled: boolean
+  trigger_count: {
+    total: number
+    success: number
+    failed: number
+  }
+  created_at: string
+  updated_at: string
+}
+
 export async function getHealth(): Promise<{ status: string }> {
   const { data } = await apiClient.get('/health')
   return data
@@ -242,5 +281,87 @@ export async function listAlerts(projectId: string, params?: {
   const { data } = await apiClient.get<Page<AlertRecord>>(`/projects/${projectId}/alerts`, {
     params,
   })
+  return data
+}
+
+export async function createDAGTemplate(
+  projectId: string,
+  payload: {
+    name: string
+    description?: string
+    nodes: DAGNodeInput[]
+    edges?: Array<{ from: string; to: string }>
+    enabled?: boolean
+  },
+): Promise<DAGTemplate> {
+  const { data } = await apiClient.post<DAGTemplate>(
+    `/projects/${projectId}/dag-templates`,
+    payload,
+  )
+  return data
+}
+
+export async function listDAGTemplates(projectId: string, params?: {
+  include_global?: boolean
+  enabled?: boolean
+  skip?: number
+  limit?: number
+}): Promise<Page<DAGTemplate>> {
+  const { data } = await apiClient.get<Page<DAGTemplate>>(
+    `/projects/${projectId}/dag-templates`,
+    { params },
+  )
+  return data
+}
+
+export async function createEventTrigger(
+  projectId: string,
+  payload: {
+    name: string
+    description?: string
+    event_type: 'asset_created' | 'asset_updated' | 'asset_deleted' | 'subdomain_discovered' | 'ip_discovered' | 'port_discovered' | 'web_asset_discovered' | 'vulnerability_found' | 'scan_completed' | 'scan_failed'
+    filter_config?: Record<string, unknown>
+    dag_template_id: string
+    dag_config?: Record<string, unknown>
+    enabled?: boolean
+  },
+): Promise<EventTrigger> {
+  const { data } = await apiClient.post<EventTrigger>(
+    `/projects/${projectId}/event-triggers`,
+    payload,
+  )
+  return data
+}
+
+export async function listEventTriggers(projectId: string, params?: {
+  event_type?: string
+  enabled?: boolean
+  skip?: number
+  limit?: number
+}): Promise<Page<EventTrigger>> {
+  const { data } = await apiClient.get<Page<EventTrigger>>(
+    `/projects/${projectId}/event-triggers`,
+    { params },
+  )
+  return data
+}
+
+export async function updateEventTrigger(
+  projectId: string,
+  triggerId: string,
+  payload: {
+    name?: string
+    description?: string
+    event_type?: string
+    filter_config?: Record<string, unknown>
+    dag_template_id?: string
+    dag_config?: Record<string, unknown>
+    enabled?: boolean
+  },
+): Promise<EventTrigger> {
+  const { data } = await apiClient.patch<EventTrigger>(
+    `/projects/${projectId}/event-triggers/${triggerId}`,
+    payload,
+  )
   return data
 }

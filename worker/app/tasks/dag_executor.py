@@ -153,6 +153,31 @@ def check_execution_complete(node_states: Dict[str, str]) -> tuple[bool, bool]:
     return False, False
 
 
+def mark_blocked_nodes_as_skipped(
+    nodes: List[Dict[str, Any]],
+    node_states: Dict[str, str],
+    dependency_graph: Dict[str, Set[str]],
+) -> List[str]:
+    """
+    Mark pending nodes as skipped if any dependency has failed.
+
+    Returns:
+        List of node_ids that were updated to skipped.
+    """
+    changed_nodes: List[str] = []
+
+    for node in nodes:
+        node_id = node.get("id")
+        if node_states.get(node_id) != "pending":
+            continue
+        deps = dependency_graph.get(node_id, set())
+        if any(node_states.get(dep) in ("failed", "skipped") for dep in deps):
+            node_states[node_id] = "skipped"
+            changed_nodes.append(node_id)
+
+    return changed_nodes
+
+
 def dispatch_scan_task(
     db: Session,
     project_id: UUID,
@@ -233,6 +258,15 @@ def execute_dag(self, execution_id: str) -> Dict[str, Any]:
         ready_nodes = get_ready_nodes(nodes, node_states, dependency_graph)
 
         if not ready_nodes:
+            skipped_nodes = mark_blocked_nodes_as_skipped(nodes, node_states, dependency_graph)
+            for node_id in skipped_nodes:
+                crud_execution.update_node_state(
+                    db=db,
+                    execution=execution,
+                    node_id=node_id,
+                    state="skipped",
+                )
+
             # 检查是否已完成
             is_complete, is_success = check_execution_complete(node_states)
             if is_complete:

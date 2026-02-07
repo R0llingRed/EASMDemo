@@ -155,10 +155,13 @@ watch(
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Tasks</h1>
-      <div class="flex items-center gap-2">
+  <div class="page-shell">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Tasks</h1>
+        <p class="page-subtitle">创建并启动扫描任务，跟踪执行进度</p>
+      </div>
+      <div class="page-tools">
         <el-select
           v-model="query.taskType"
           clearable
@@ -184,7 +187,7 @@ watch(
       </div>
     </div>
 
-    <el-card shadow="never">
+    <el-card shadow="never" class="panel-card">
       <template #header><span>创建扫描任务</span></template>
       <el-form label-width="100px">
         <el-form-item label="任务类型">
@@ -215,7 +218,7 @@ watch(
       </el-form>
     </el-card>
 
-    <el-card shadow="never">
+    <el-card shadow="never" class="panel-card">
       <template #header><span>任务列表</span></template>
       <el-empty v-if="!scans.length" description="暂无任务" />
       <el-table v-else :data="scans" v-loading="loading">

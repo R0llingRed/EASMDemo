@@ -45,17 +45,22 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Projects</h1>
-      <el-button @click="refresh" :loading="workspace.loading">刷新</el-button>
+  <div class="page-shell">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Projects</h1>
+        <p class="page-subtitle">创建项目并切换当前工作空间</p>
+      </div>
+      <div class="page-tools">
+        <el-button @click="refresh" :loading="workspace.loading">刷新</el-button>
+      </div>
     </div>
 
-    <el-card shadow="never">
+    <el-card shadow="never" class="panel-card">
       <template #header>
         <span>创建项目</span>
       </template>
-      <el-form :inline="true" @submit.prevent>
+      <el-form @submit.prevent class="grid grid-cols-1 gap-3 md:grid-cols-3">
         <el-form-item label="名称">
           <el-input v-model="form.name" placeholder="例如: prod-easm" />
         </el-form-item>
@@ -68,7 +73,7 @@ onMounted(async () => {
       </el-form>
     </el-card>
 
-    <el-card shadow="never">
+    <el-card shadow="never" class="panel-card">
       <template #header>
         <span>项目列表</span>
       </template>

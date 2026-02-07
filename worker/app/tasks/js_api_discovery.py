@@ -48,9 +48,13 @@ def run_js_api_discovery(self, task_id: str):
     except Exception as exc:
         logger.exception(f"Task {task_id} failed")
         task_uuid = UUID(task_id)
-        crud_scan_task.update_scan_task_status(
-            db, task_uuid, "failed", error_message=str(exc)
-        )
+        db.rollback()
+        try:
+            crud_scan_task.update_scan_task_status(
+                db, task_uuid, "failed", error_message=str(exc)
+            )
+        except Exception:
+            logger.exception("Failed to persist failed status for task %s", task_id)
         notify_dag_node_completion(db=db, scan_task_id=task_uuid, success=False)
     finally:
         db.close()

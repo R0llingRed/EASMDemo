@@ -35,6 +35,16 @@ const router = createRouter({
                     component: () => import('../views/TasksView.vue')
                 },
                 {
+                    path: 'task-progress',
+                    name: 'task-progress',
+                    component: () => import('../views/TaskProgressView.vue')
+                },
+                {
+                    path: 'automation',
+                    name: 'automation',
+                    component: () => import('../views/AutomationView.vue')
+                },
+                {
                     path: 'settings',
                     name: 'settings',
                     component: () => import('../views/SettingsView.vue')
