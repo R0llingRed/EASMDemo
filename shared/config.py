@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     api_keys: str = "dev-change-me"
     api_key_project_map: str = ""
     scan_verify_tls: bool = True
+    cors_enabled: bool = True
+    cors_allow_origins: str = "*"
+    cors_allow_methods: str = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+    cors_allow_headers: str = "*"
+    cors_allow_credentials: bool = False
 
     class Config:
         env_file = ".env"
@@ -69,6 +74,15 @@ class Settings(BaseSettings):
             raise ValueError(
                 "Invalid EASM_REDIS_URL: host 'redis' must use container port 6379"
             )
+
+    def get_cors_allow_origins(self) -> list[str]:
+        return [item.strip() for item in self.cors_allow_origins.split(",") if item.strip()]
+
+    def get_cors_allow_methods(self) -> list[str]:
+        return [item.strip() for item in self.cors_allow_methods.split(",") if item.strip()]
+
+    def get_cors_allow_headers(self) -> list[str]:
+        return [item.strip() for item in self.cors_allow_headers.split(",") if item.strip()]
 
 
 settings = Settings()

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import {
   Monitor,
@@ -13,18 +13,15 @@ import {
 
 const route = useRoute()
 const isCollapse = ref(false)
+const asideWidth = computed(() => (isCollapse.value ? '64px' : '240px'))
 
-const handleOpen = (key: string, keyPath: string[]) => {
-  console.log(key, keyPath)
-}
-const handleClose = (key: string, keyPath: string[]) => {
-  console.log(key, keyPath)
-}
+const handleOpen = (_key: string, _keyPath: string[]) => {}
+const handleClose = (_key: string, _keyPath: string[]) => {}
 </script>
 
 <template>
   <el-container class="h-screen w-full">
-    <el-aside width="240px" class="bg-gray-900 text-white transition-all duration-300" :class="{ 'w-16': isCollapse }">
+    <el-aside :width="asideWidth" class="bg-gray-900 text-white transition-all duration-300">
       <div class="h-16 flex items-center justify-center border-b border-gray-800">
         <span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400" v-if="!isCollapse">
           EASM Platform
@@ -116,9 +113,6 @@ const handleClose = (key: string, keyPath: string[]) => {
 </template>
 
 <style scoped>
-.el-menu-vertical-demo:not(.el-menu--collapse) {
-  width: 240px;
-}
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
