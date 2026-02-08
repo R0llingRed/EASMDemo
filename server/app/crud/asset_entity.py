@@ -1,6 +1,6 @@
 from typing import Iterable, List, Tuple
 
-from sqlalchemy import func, select, tuple_, update
+from sqlalchemy import delete, func, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -76,3 +76,23 @@ def list_assets(
         .all()
     )
     return total, items
+
+
+def get_asset(db: Session, asset_id) -> AssetEntity | None:
+    return db.get(AssetEntity, asset_id)
+
+
+def update_asset_source(
+    db: Session,
+    asset: AssetEntity,
+    source: str | None,
+) -> AssetEntity:
+    asset.source = source
+    db.commit()
+    db.refresh(asset)
+    return asset
+
+
+def delete_asset(db: Session, asset: AssetEntity) -> None:
+    db.execute(delete(AssetEntity).where(AssetEntity.id == asset.id))
+    db.commit()

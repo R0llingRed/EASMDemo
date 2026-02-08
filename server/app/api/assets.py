@@ -1,16 +1,25 @@
 import logging
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, Query
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from server.app.api.deps import get_project_dep
-from server.app.crud.asset_entity import bulk_import_assets, list_assets
+from server.app.crud.asset_entity import (
+    bulk_import_assets,
+    delete_asset,
+    get_asset,
+    list_assets,
+    update_asset_source,
+)
 from server.app.db.session import get_db
 from server.app.schemas.asset_entity import (
     AssetEntityOut,
     AssetImportRequest,
     AssetImportResult,
+    AssetEntityUpdate,
     AssetType,
 )
 from server.app.schemas.common import Page
@@ -168,3 +177,43 @@ def list_assets_endpoint(
         db, project_id=project.id, asset_type=asset_type, offset=offset, limit=limit
     )
     return Page(total=total, items=items)
+
+
+@router.get("/{asset_id}", response_model=AssetEntityOut)
+def get_asset_endpoint(
+    asset_id: UUID,
+    project=Depends(get_project_dep),
+    db: Session = Depends(get_db),
+) -> AssetEntityOut:
+    asset = get_asset(db=db, asset_id=asset_id)
+    if not asset or asset.project_id != project.id:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return asset
+
+
+@router.patch("/{asset_id}", response_model=AssetEntityOut)
+def update_asset_endpoint(
+    asset_id: UUID,
+    body: AssetEntityUpdate,
+    project=Depends(get_project_dep),
+    db: Session = Depends(get_db),
+) -> AssetEntityOut:
+    asset = get_asset(db=db, asset_id=asset_id)
+    if not asset or asset.project_id != project.id:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    updated = update_asset_source(db=db, asset=asset, source=body.source)
+    return updated
+
+
+@router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_asset_endpoint(
+    asset_id: UUID,
+    project=Depends(get_project_dep),
+    db: Session = Depends(get_db),
+):
+    asset = get_asset(db=db, asset_id=asset_id)
+    if not asset or asset.project_id != project.id:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    delete_asset(db=db, asset=asset)
+    return None

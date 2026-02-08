@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
-import { importAssets, listAssets, type Asset } from '../api/easm'
+import { deleteAsset, importAssets, listAssets, updateAsset, type Asset } from '../api/easm'
 import { getErrorMessage } from '../api/client'
 import { useWorkspaceStore } from '../stores/workspace'
 
@@ -14,6 +14,14 @@ const assets = ref<Asset[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
+const actionAssetId = ref('')
+const editVisible = ref(false)
+const editing = ref(false)
+
+const editForm = reactive({
+  id: '',
+  source: '',
+})
 
 const query = reactive<{
   asset_type?: 'domain' | 'ip' | 'url'
@@ -106,6 +114,59 @@ async function onPageSizeChange(size: number) {
   await loadAssets()
 }
 
+function openEdit(asset: Asset) {
+  editForm.id = asset.id
+  editForm.source = asset.source ?? ''
+  editVisible.value = true
+}
+
+async function submitEdit() {
+  const projectId = workspace.selectedProjectId
+  if (!projectId || !editForm.id) {
+    return
+  }
+
+  editing.value = true
+  try {
+    await updateAsset(projectId, editForm.id, {
+      source: editForm.source.trim() || null,
+    })
+    ElMessage.success('资产来源已更新')
+    editVisible.value = false
+    await loadAssets()
+  } catch (error) {
+    ElMessage.error(`更新失败：${getErrorMessage(error)}`)
+  } finally {
+    editing.value = false
+  }
+}
+
+async function removeAsset(asset: Asset) {
+  const projectId = workspace.selectedProjectId
+  if (!projectId) {
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm('删除后无法恢复，是否继续？', '确认删除资产', {
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+
+  actionAssetId.value = asset.id
+  try {
+    await deleteAsset(projectId, asset.id)
+    ElMessage.success('资产已删除')
+    await loadAssets()
+  } catch (error) {
+    ElMessage.error(`删除失败：${getErrorMessage(error)}`)
+  } finally {
+    actionAssetId.value = ''
+  }
+}
+
 onMounted(async () => {
   await workspace.loadProjects()
   await loadAssets()
@@ -192,6 +253,21 @@ watch(
         <el-table-column prop="source" label="来源" width="140" />
         <el-table-column prop="first_seen" label="首次发现" min-width="180" />
         <el-table-column prop="last_seen" label="最近发现" min-width="180" />
+        <el-table-column label="操作" width="200">
+          <template #default="{ row }">
+            <div class="flex items-center gap-2">
+              <el-button size="small" @click="openEdit(row)">编辑</el-button>
+              <el-button
+                size="small"
+                type="danger"
+                :loading="actionAssetId === row.id"
+                @click="removeAsset(row)"
+              >
+                删除
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
       </el-table>
       <div class="mt-4 flex justify-end">
         <el-pagination
@@ -205,5 +281,17 @@ watch(
         />
       </div>
     </el-card>
+
+    <el-dialog v-model="editVisible" title="编辑资产来源" width="560px">
+      <el-form label-width="90px">
+        <el-form-item label="来源">
+          <el-input v-model="editForm.source" placeholder="例如：manual / external_feed" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editVisible = false">取消</el-button>
+        <el-button type="primary" :loading="editing" @click="submitEdit">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>

@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
-import { createProject, listProjects, type Project } from '../api/easm'
+import { createProject, deleteProject, listProjects, updateProject, type Project } from '../api/easm'
 
 const ACTIVE_PROJECT_STORAGE = 'easm_active_project_id'
 
@@ -56,6 +56,19 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     await loadProjects()
   }
 
+  async function updateProjectAndRefresh(
+    projectId: string,
+    payload: { name?: string; description?: string | null },
+  ) {
+    await updateProject(projectId, payload)
+    await loadProjects()
+  }
+
+  async function deleteProjectAndRefresh(projectId: string) {
+    await deleteProject(projectId)
+    await loadProjects()
+  }
+
   return {
     projects,
     loading,
@@ -64,5 +77,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     loadProjects,
     setSelectedProject,
     createProjectAndRefresh,
+    updateProjectAndRefresh,
+    deleteProjectAndRefresh,
   }
 })

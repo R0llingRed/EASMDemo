@@ -32,6 +32,9 @@ def run_js_api_discovery(self, task_id: str):
         if not task:
             logger.error(f"Task {task_id} not found")
             return
+        if task.status in {"paused", "cancelled"}:
+            logger.info("Task %s is %s, skip execution", task_id, task.status)
+            return
 
         crud_scan_task.update_scan_task_status(db, task.id, "running")
         if not wait_for_project_rate_limit(

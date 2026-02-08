@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from server.app.api.deps import get_project_dep
@@ -10,7 +10,7 @@ from server.app.crud import scan_task as crud_scan_task
 from server.app.db.session import get_db
 from server.app.models.project import Project
 from server.app.schemas.common import Page
-from server.app.schemas.scan_task import ScanTaskCreate, ScanTaskOut
+from server.app.schemas.scan_task import ScanTaskCreate, ScanTaskOut, ScanTaskUpdate
 from worker.app.tasks import fingerprint as fingerprint_tasks
 from worker.app.tasks import http_probe as http_probe_tasks
 from worker.app.tasks import js_api_discovery as js_api_discovery_tasks
@@ -175,3 +175,116 @@ def start_scan(
         raise HTTPException(status_code=500, detail=f"Task dispatch failed: {exc}") from exc
 
     return started_task
+
+
+@router.post("/{task_id}/pause", response_model=ScanTaskOut)
+def pause_scan(
+    task_id: UUID,
+    project: Project = Depends(get_project_dep),
+    db: Session = Depends(get_db),
+):
+    task = crud_scan_task.get_scan_task(db=db, task_id=task_id)
+    if not task or task.project_id != project.id:
+        raise HTTPException(status_code=404, detail="Scan task not found")
+    if task.status != "pending":
+        raise HTTPException(status_code=400, detail="Only pending tasks can be paused")
+
+    paused_task = crud_scan_task.transition_scan_task_status(
+        db=db,
+        task_id=task.id,
+        project_id=project.id,
+        from_statuses=["pending"],
+        to_status="paused",
+    )
+    if not paused_task:
+        raise HTTPException(status_code=409, detail="Task status changed, pause rejected")
+    return paused_task
+
+
+@router.post("/{task_id}/resume", response_model=ScanTaskOut)
+def resume_scan(
+    task_id: UUID,
+    project: Project = Depends(get_project_dep),
+    db: Session = Depends(get_db),
+):
+    task = crud_scan_task.get_scan_task(db=db, task_id=task_id)
+    if not task or task.project_id != project.id:
+        raise HTTPException(status_code=404, detail="Scan task not found")
+    if task.status != "paused":
+        raise HTTPException(status_code=400, detail="Only paused tasks can be resumed")
+
+    resumed_task = crud_scan_task.transition_scan_task_status(
+        db=db,
+        task_id=task.id,
+        project_id=project.id,
+        from_statuses=["paused"],
+        to_status="pending",
+    )
+    if not resumed_task:
+        raise HTTPException(status_code=409, detail="Task status changed, resume rejected")
+    return resumed_task
+
+
+@router.post("/{task_id}/cancel", response_model=ScanTaskOut)
+def cancel_scan(
+    task_id: UUID,
+    project: Project = Depends(get_project_dep),
+    db: Session = Depends(get_db),
+):
+    task = crud_scan_task.get_scan_task(db=db, task_id=task_id)
+    if not task or task.project_id != project.id:
+        raise HTTPException(status_code=404, detail="Scan task not found")
+    if task.status not in {"pending", "paused", "running"}:
+        raise HTTPException(status_code=400, detail="Task cannot be cancelled in current status")
+
+    cancelled_task = crud_scan_task.transition_scan_task_status(
+        db=db,
+        task_id=task.id,
+        project_id=project.id,
+        from_statuses=["pending", "paused", "running"],
+        to_status="cancelled",
+    )
+    if not cancelled_task:
+        raise HTTPException(status_code=409, detail="Task status changed, cancel rejected")
+    return cancelled_task
+
+
+@router.patch("/{task_id}", response_model=ScanTaskOut)
+def update_scan(
+    task_id: UUID,
+    body: ScanTaskUpdate,
+    project: Project = Depends(get_project_dep),
+    db: Session = Depends(get_db),
+):
+    task = crud_scan_task.get_scan_task(db=db, task_id=task_id)
+    if not task or task.project_id != project.id:
+        raise HTTPException(status_code=404, detail="Scan task not found")
+    if task.status not in {"pending", "paused"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Only pending/paused tasks can be updated",
+        )
+
+    updated = crud_scan_task.update_scan_task(
+        db=db,
+        task=task,
+        config=body.config,
+        priority=body.priority,
+    )
+    return updated
+
+
+@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_scan(
+    task_id: UUID,
+    project: Project = Depends(get_project_dep),
+    db: Session = Depends(get_db),
+):
+    task = crud_scan_task.get_scan_task(db=db, task_id=task_id)
+    if not task or task.project_id != project.id:
+        raise HTTPException(status_code=404, detail="Scan task not found")
+    if task.status == "running":
+        raise HTTPException(status_code=400, detail="Running task cannot be deleted")
+
+    crud_scan_task.delete_scan_task(db=db, task=task)
+    return None

@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from server.app.models.scan_task import ScanTask
@@ -92,6 +92,55 @@ def start_scan_task(
     return db.get(ScanTask, task_id)
 
 
+def transition_scan_task_status(
+    db: Session,
+    task_id: UUID,
+    project_id: UUID,
+    from_statuses: List[str],
+    to_status: str,
+) -> Optional[ScanTask]:
+    values: Dict[str, Any] = {"status": to_status}
+    if to_status == "running":
+        values["started_at"] = datetime.utcnow()
+    if to_status in ("completed", "failed", "cancelled"):
+        values["completed_at"] = datetime.utcnow()
+
+    stmt = (
+        update(ScanTask)
+        .where(
+            ScanTask.id == task_id,
+            ScanTask.project_id == project_id,
+            ScanTask.status.in_(from_statuses),
+        )
+        .values(**values)
+    )
+    result = db.execute(stmt)
+    db.commit()
+    if (result.rowcount or 0) < 1:
+        return None
+    return db.get(ScanTask, task_id)
+
+
+def update_scan_task(
+    db: Session,
+    task: ScanTask,
+    config: Optional[Dict[str, Any]] = None,
+    priority: Optional[int] = None,
+) -> ScanTask:
+    if config is not None:
+        task.config = config
+    if priority is not None:
+        task.priority = priority
+    db.commit()
+    db.refresh(task)
+    return task
+
+
+def delete_scan_task(db: Session, task: ScanTask) -> None:
+    db.execute(delete(ScanTask).where(ScanTask.id == task.id))
+    db.commit()
+
+
 def update_scan_task_status(
     db: Session,
     task_id: UUID,
@@ -102,6 +151,9 @@ def update_scan_task_status(
     task = db.get(ScanTask, task_id)
     if not task:
         return None
+    # Preserve user-issued cancellation as terminal state.
+    if task.status == "cancelled" and status in ("running", "completed", "failed"):
+        return task
     task.status = status
     if status == "running" and not task.started_at:
         task.started_at = datetime.utcnow()
@@ -124,6 +176,8 @@ def update_scan_task_progress(
     task = db.get(ScanTask, task_id)
     if not task:
         return None
+    if task.status == "cancelled":
+        return task
     task.completed_targets = completed_targets
     if task.total_targets > 0:
         task.progress = int((completed_targets / task.total_targets) * 100)

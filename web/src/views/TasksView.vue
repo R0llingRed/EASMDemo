@@ -1,8 +1,19 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
-import { createScan, getScan, listScans, startScan, type ScanTask } from '../api/easm'
+import {
+  cancelScan,
+  createScan,
+  deleteScan,
+  getScan,
+  listScans,
+  pauseScan,
+  resumeScan,
+  startScan,
+  updateScan,
+  type ScanTask,
+} from '../api/easm'
 import { getErrorMessage } from '../api/client'
 import { useWorkspaceStore } from '../stores/workspace'
 
@@ -15,9 +26,18 @@ const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const startingTaskId = ref('')
+const actionTaskId = ref('')
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const selectedTask = ref<ScanTask | null>(null)
+const editVisible = ref(false)
+const editing = ref(false)
+
+const editForm = reactive({
+  id: '',
+  priority: 5,
+  configJson: '{}',
+})
 
 const query = reactive({
   taskType: '',
@@ -55,6 +75,20 @@ function prettyJson(value: unknown): string {
     return JSON.stringify(value ?? {}, null, 2)
   } catch {
     return String(value ?? '')
+  }
+}
+
+function isEditableStatus(status: string): boolean {
+  return status === 'pending' || status === 'paused'
+}
+
+async function runTaskAction(taskId: string, action: () => Promise<void>) {
+  actionTaskId.value = taskId
+  try {
+    await action()
+  } finally {
+    actionTaskId.value = ''
+    await refreshScans()
   }
 }
 
@@ -143,6 +177,116 @@ async function triggerStart(taskId: string) {
   }
 }
 
+async function triggerPause(taskId: string) {
+  const projectId = workspace.selectedProjectId
+  if (!projectId) {
+    return
+  }
+  await runTaskAction(taskId, async () => {
+    await pauseScan(projectId, taskId)
+    ElMessage.success('任务已暂停')
+  })
+}
+
+async function triggerResume(taskId: string) {
+  const projectId = workspace.selectedProjectId
+  if (!projectId) {
+    return
+  }
+  await runTaskAction(taskId, async () => {
+    await resumeScan(projectId, taskId)
+    ElMessage.success('任务已恢复为待执行')
+  })
+}
+
+async function triggerCancel(taskId: string) {
+  const projectId = workspace.selectedProjectId
+  if (!projectId) {
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      '取消后任务将停止后续处理，是否继续？',
+      '确认取消任务',
+      { type: 'warning' },
+    )
+  } catch {
+    return
+  }
+
+  await runTaskAction(taskId, async () => {
+    await cancelScan(projectId, taskId)
+    ElMessage.success('任务已取消')
+  })
+}
+
+function openTaskEditor(task: ScanTask) {
+  if (!isEditableStatus(task.status)) {
+    ElMessage.warning('只有 pending/paused 任务可编辑')
+    return
+  }
+  editForm.id = task.id
+  editForm.priority = task.priority
+  editForm.configJson = prettyJson(task.config)
+  editVisible.value = true
+}
+
+async function submitTaskEdit() {
+  const projectId = workspace.selectedProjectId
+  if (!projectId || !editForm.id) {
+    return
+  }
+
+  let config: Record<string, unknown>
+  try {
+    config = JSON.parse(editForm.configJson) as Record<string, unknown>
+  } catch {
+    ElMessage.error('配置 JSON 格式不合法')
+    return
+  }
+
+  editing.value = true
+  try {
+    await updateScan(projectId, editForm.id, {
+      priority: editForm.priority,
+      config,
+    })
+    ElMessage.success('任务已更新')
+    editVisible.value = false
+    await refreshScans()
+  } catch (error) {
+    ElMessage.error(`更新失败：${getErrorMessage(error)}`)
+  } finally {
+    editing.value = false
+  }
+}
+
+async function triggerDelete(task: ScanTask) {
+  const projectId = workspace.selectedProjectId
+  if (!projectId) {
+    return
+  }
+  if (task.status === 'running') {
+    ElMessage.warning('运行中的任务不可删除')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      '删除任务后将无法恢复，是否继续？',
+      '确认删除任务',
+      { type: 'warning' },
+    )
+  } catch {
+    return
+  }
+
+  await runTaskAction(task.id, async () => {
+    await deleteScan(projectId, task.id)
+    ElMessage.success('任务已删除')
+  })
+}
+
 async function openTaskDetails(task: ScanTask) {
   const projectId = workspace.selectedProjectId
   selectedTask.value = task
@@ -218,9 +362,11 @@ watch(
           @change="onFilterChange"
         >
           <el-option label="pending" value="pending" />
+          <el-option label="paused" value="paused" />
           <el-option label="running" value="running" />
           <el-option label="completed" value="completed" />
           <el-option label="failed" value="failed" />
+          <el-option label="cancelled" value="cancelled" />
         </el-select>
         <el-button @click="refreshScans" :loading="loading">刷新</el-button>
       </div>
@@ -266,17 +412,59 @@ watch(
         <el-table-column prop="priority" label="优先级" width="100" />
         <el-table-column prop="progress" label="进度" width="100" />
         <el-table-column prop="created_at" label="创建时间" min-width="180" />
-        <el-table-column label="操作" width="220">
+        <el-table-column label="操作" width="520">
           <template #default="{ row }">
             <div class="flex items-center gap-2">
               <el-button
                 v-if="row.status === 'pending'"
                 type="primary"
                 size="small"
-                :loading="startingTaskId === row.id"
+                :loading="startingTaskId === row.id || actionTaskId === row.id"
                 @click="triggerStart(row.id)"
               >
                 启动
+              </el-button>
+              <el-button
+                v-if="row.status === 'pending'"
+                size="small"
+                :loading="actionTaskId === row.id"
+                @click="triggerPause(row.id)"
+              >
+                暂停
+              </el-button>
+              <el-button
+                v-if="row.status === 'paused'"
+                type="success"
+                size="small"
+                :loading="actionTaskId === row.id"
+                @click="triggerResume(row.id)"
+              >
+                恢复
+              </el-button>
+              <el-button
+                v-if="row.status === 'pending' || row.status === 'paused' || row.status === 'running'"
+                type="warning"
+                size="small"
+                :loading="actionTaskId === row.id"
+                @click="triggerCancel(row.id)"
+              >
+                取消
+              </el-button>
+              <el-button
+                v-if="isEditableStatus(row.status)"
+                size="small"
+                @click="openTaskEditor(row)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                v-if="row.status !== 'running'"
+                type="danger"
+                size="small"
+                :loading="actionTaskId === row.id"
+                @click="triggerDelete(row)"
+              >
+                删除
               </el-button>
               <el-button size="small" @click="openTaskDetails(row)">详情/日志</el-button>
             </div>
@@ -352,5 +540,20 @@ watch(
         </template>
       </el-skeleton>
     </el-drawer>
+
+    <el-dialog v-model="editVisible" title="编辑任务" width="680px">
+      <el-form label-width="100px">
+        <el-form-item label="优先级">
+          <el-input-number v-model="editForm.priority" :min="1" :max="10" />
+        </el-form-item>
+        <el-form-item label="配置(JSON)">
+          <el-input v-model="editForm.configJson" type="textarea" :rows="10" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editVisible = false">取消</el-button>
+        <el-button type="primary" :loading="editing" @click="submitTaskEdit">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>

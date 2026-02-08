@@ -22,6 +22,10 @@ class AssetImportRequest(BaseModel):
     assets: List[AssetEntityCreate] = Field(min_length=1, max_length=1000)
 
 
+class AssetEntityUpdate(BaseModel):
+    source: Optional[str] = Field(default=None, max_length=128)
+
+
 class AssetEntityOut(BaseModel):
     id: UUID
     project_id: UUID

@@ -34,7 +34,7 @@ export interface ScanTask {
   project_id: string
   scan_policy_id: string | null
   task_type: string
-  status: 'pending' | 'running' | 'completed' | 'failed'
+  status: 'pending' | 'paused' | 'running' | 'completed' | 'failed' | 'cancelled'
   priority: number
   progress: number
   total_targets: number
@@ -177,6 +177,21 @@ export async function createProject(payload: {
   return data
 }
 
+export async function updateProject(
+  projectId: string,
+  payload: {
+    name?: string
+    description?: string | null
+  },
+): Promise<Project> {
+  const { data } = await apiClient.patch<Project>(`/projects/${projectId}`, payload)
+  return data
+}
+
+export async function deleteProject(projectId: string): Promise<void> {
+  await apiClient.delete(`/projects/${projectId}`)
+}
+
 export async function listAssets(projectId: string, params?: {
   asset_type?: 'domain' | 'ip' | 'url'
   offset?: number
@@ -197,6 +212,19 @@ export async function importAssets(
     { assets },
   )
   return data
+}
+
+export async function updateAsset(
+  projectId: string,
+  assetId: string,
+  payload: { source?: string | null },
+): Promise<Asset> {
+  const { data } = await apiClient.patch<Asset>(`/projects/${projectId}/assets/${assetId}`, payload)
+  return data
+}
+
+export async function deleteAsset(projectId: string, assetId: string): Promise<void> {
+  await apiClient.delete(`/projects/${projectId}/assets/${assetId}`)
 }
 
 export async function listScans(projectId: string, params?: {
@@ -234,6 +262,37 @@ export async function getScan(projectId: string, taskId: string): Promise<ScanTa
   return data
 }
 
+export async function pauseScan(projectId: string, taskId: string): Promise<ScanTask> {
+  const { data } = await apiClient.post<ScanTask>(`/projects/${projectId}/scans/${taskId}/pause`)
+  return data
+}
+
+export async function resumeScan(projectId: string, taskId: string): Promise<ScanTask> {
+  const { data } = await apiClient.post<ScanTask>(`/projects/${projectId}/scans/${taskId}/resume`)
+  return data
+}
+
+export async function cancelScan(projectId: string, taskId: string): Promise<ScanTask> {
+  const { data } = await apiClient.post<ScanTask>(`/projects/${projectId}/scans/${taskId}/cancel`)
+  return data
+}
+
+export async function updateScan(
+  projectId: string,
+  taskId: string,
+  payload: {
+    priority?: number
+    config?: Record<string, unknown>
+  },
+): Promise<ScanTask> {
+  const { data } = await apiClient.patch<ScanTask>(`/projects/${projectId}/scans/${taskId}`, payload)
+  return data
+}
+
+export async function deleteScan(projectId: string, taskId: string): Promise<void> {
+  await apiClient.delete(`/projects/${projectId}/scans/${taskId}`)
+}
+
 export async function listVulnerabilities(projectId: string, params?: {
   severity?: string
   status?: string
@@ -243,6 +302,21 @@ export async function listVulnerabilities(projectId: string, params?: {
   const { data } = await apiClient.get<Page<Vulnerability>>(
     `/projects/${projectId}/vulnerabilities`,
     { params },
+  )
+  return data
+}
+
+export async function updateVulnerability(
+  projectId: string,
+  vulnId: string,
+  payload: {
+    status?: 'open' | 'confirmed' | 'fixed' | 'false_positive'
+    is_false_positive?: boolean
+  },
+): Promise<Vulnerability> {
+  const { data } = await apiClient.patch<Vulnerability>(
+    `/projects/${projectId}/vulnerabilities/${vulnId}`,
+    payload,
   )
   return data
 }
@@ -263,6 +337,22 @@ export async function listApiRisks(projectId: string, params?: {
   const { data } = await apiClient.get<Page<ApiRisk>>(`/projects/${projectId}/api-risks`, {
     params,
   })
+  return data
+}
+
+export async function updateApiRiskStatus(
+  projectId: string,
+  riskId: string,
+  payload: {
+    status: 'open' | 'investigating' | 'accepted_risk' | 'resolved' | 'false_positive'
+    updated_by: string
+    resolution_notes?: string
+  },
+): Promise<ApiRisk> {
+  const { data } = await apiClient.patch<ApiRisk>(
+    `/projects/${projectId}/api-risks/${riskId}/status`,
+    payload,
+  )
   return data
 }
 

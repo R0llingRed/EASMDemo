@@ -20,9 +20,11 @@ class TaskType(str, Enum):
 
 class TaskStatus(str, Enum):
     pending = "pending"
+    paused = "paused"
     running = "running"
     completed = "completed"
     failed = "failed"
+    cancelled = "cancelled"
 
 
 class ScanTaskCreate(BaseModel):
@@ -30,6 +32,11 @@ class ScanTaskCreate(BaseModel):
     policy_id: Optional[UUID] = None
     config: Dict[str, Any] = Field(default_factory=dict)
     priority: int = Field(default=5, ge=1, le=10)
+
+
+class ScanTaskUpdate(BaseModel):
+    config: Optional[Dict[str, Any]] = None
+    priority: Optional[int] = Field(default=None, ge=1, le=10)
 
 
 class ScanTaskOut(BaseModel):

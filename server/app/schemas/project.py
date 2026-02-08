@@ -10,6 +10,11 @@ class ProjectCreate(BaseModel):
     description: Optional[str] = None
 
 
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = None
+
+
 class ProjectOut(BaseModel):
     id: UUID
     name: str
